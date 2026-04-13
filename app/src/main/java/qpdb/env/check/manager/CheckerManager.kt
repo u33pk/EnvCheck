@@ -34,15 +34,16 @@ object CheckerManager {
         // 这里采用手动注册方式
         CheckerRegistry.registerAll(
 //            qpdb.env.check.checkers.BootloaderLockChecker(),
-            qpdb.env.check.checkers.BatteryChecker(),      // 电池信息检测
-            qpdb.env.check.checkers.DeveloperChecker(),  // 开发者模式和 ADB 检测
-            qpdb.env.check.checkers.SimCardChecker(),    // SIM 卡信息检测
+//            qpdb.env.check.checkers.BatteryChecker(),      // 电池信息检测
+//            qpdb.env.check.checkers.DeveloperChecker(),  // 开发者模式和 ADB 检测
+//            qpdb.env.check.checkers.SimCardChecker(),    // SIM 卡信息检测
 //            qpdb.env.check.checkers.WebViewFingerPrintChecker(),  // WebView 指纹检测
-            qpdb.env.check.checkers.InputDeviceChecker(),  // 输入设备检测
-            qpdb.env.check.checkers.NetworkChecker(),    // 网络环境检测
-            qpdb.env.check.checkers.GpuChecker(),        // GPU 信息检测
-            qpdb.env.check.checkers.KernelSUChecker(),   // KernelSU 检测
-            qpdb.env.check.checkers.KernelInfoChecker(), // 内核信息检测
+//            qpdb.env.check.checkers.InputDeviceChecker(),  // 输入设备检测
+//            qpdb.env.check.checkers.NetworkChecker(),    // 网络环境检测
+//            qpdb.env.check.checkers.GpuChecker(),        // GPU 信息检测
+//            qpdb.env.check.checkers.KernelSUChecker(),   // KernelSU 检测
+            qpdb.env.check.checkers.APatchChecker(),     // APatch 检测
+//            qpdb.env.check.checkers.KernelInfoChecker(), // 内核信息检测
         )
     }
 

@@ -295,7 +295,7 @@ Java_qpdb_env_check_utils_KsuDetectionUtil_nativeCheckForkExitTiming(
 
 // ================== CNTVCT_EL0 高精度侧信道检测 ==================
 
-//#ifdef __aarch64__
+#ifdef __aarch64__
 
 static inline uint64_t read_cntvct_el0(void) {
     uint64_t val;
@@ -386,12 +386,12 @@ Java_qpdb_env_check_utils_KsuDetectionUtil_nativeCheckTimingSideChannel(
     return env->NewStringUTF(result);
 }
 
-//#else
-//
-//extern "C" JNIEXPORT jstring JNICALL
-//Java_qpdb_env_check_utils_KsuDetectionUtil_nativeCheckTimingSideChannel(
-//        JNIEnv* env, jclass clazz) {
-//    return env->NewStringUTF("unsupported_arch");
-//}
-//
-//#endif
+#else
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_qpdb_env_check_utils_KsuDetectionUtil_nativeCheckTimingSideChannel(
+        JNIEnv* env, jclass clazz) {
+    return env->NewStringUTF("unsupported_arch");
+}
+
+#endif
