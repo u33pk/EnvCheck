@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <!-- 标题 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:text="安全验证"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <!-- 说明文字 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="24dp"
+        android:text="请拖动滑块完成验证"
+        android:textSize="14sp"
+        android:textColor="?android:attr/textColorSecondary" />
+
+    <!-- 滑动轨道 -->
+    <FrameLayout
+        android:id="@+id/slideTrack"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="@drawable/slide_track_background">
+
+        <!-- 提示文字 -->
+        <TextView
+            android:id="@+id/tvHint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="→ 拖动滑块到最右边"
+            android:textSize="14sp"
+            android:textColor="?android:attr/textColorSecondary" />
+
+        <!-- 滑块 -->
+        <View
+            android:id="@+id/slideView"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:background="@drawable/slide_thumb_background"
+            android:elevation="4dp" />
+
+    </FrameLayout>
+
+    <!-- 关闭按钮 -->
+    <Button
+        android:id="@+id/btnCancel"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="16dp"
+        android:text="取消" />
+
+</LinearLayout>
