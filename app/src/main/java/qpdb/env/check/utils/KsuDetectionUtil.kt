@@ -70,13 +70,6 @@ object KsuDetectionUtil {
     external fun nativeCheckSetresuidTiming(iterations: Int): Long
 
     /**
-     * 测量 fork() -> 子进程 exit(0) -> waitpid() 的总耗时（微秒平均值）
-     * @return 格式：avg_us=xxx 或 fork_failed
-     */
-    @JvmStatic
-    external fun nativeCheckForkExitTiming(): String
-
-    /**
      * 基于 CNTVCT_EL0 的高精度 syscall 侧信道检测
      * 测量 faccessat("/system/bin/su") 与基线 fchownat 各 10000 次并排序对位比较。
      * @return 格式：anomaly=xxx|threshold=7000|test_median=xxx|base_median=xxx

@@ -235,64 +235,6 @@ Java_qpdb_env_check_utils_KsuDetectionUtil_nativeCheckSetresuidTiming(
     return (jlong)(end - start);
 }
 
-/**
- * 测量 fork() -> 子进程 exit(0) -> waitpid() 的总耗时（微秒中位数）
- *
- * 采用热身 + 中位数的策略，避免首次 fork 的冷启动惩罚拉高平均值。
- */
-extern "C" JNIEXPORT jstring JNICALL
-Java_qpdb_env_check_utils_KsuDetectionUtil_nativeCheckForkExitTiming(
-        JNIEnv* env, jclass clazz) {
-    const int warmup = 5;
-    const int iterations = 31;
-    long samples[iterations];
-
-    // 热身：丢弃前几次 fork 的冷启动惩罚
-    for (int i = 0; i < warmup; i++) {
-        pid_t pid = fork();
-        if (pid == 0) {
-            _exit(0);
-        } else if (pid > 0) {
-            int status;
-            waitpid(pid, &status, 0);
-        } else {
-            return env->NewStringUTF("fork_failed");
-        }
-    }
-
-    // 正式采样
-    for (int i = 0; i < iterations; i++) {
-        pid_t pid = fork();
-        if (pid == 0) {
-            _exit(0);
-        } else if (pid > 0) {
-            long start = get_time_ns();
-            int status;
-            waitpid(pid, &status, 0);
-            long end = get_time_ns();
-            samples[i] = (end - start) / 1000; // 转为微秒
-        } else {
-            return env->NewStringUTF("fork_failed");
-        }
-    }
-
-    // 取中位数
-    for (int i = 0; i < iterations - 1; i++) {
-        for (int j = i + 1; j < iterations; j++) {
-            if (samples[i] > samples[j]) {
-                long tmp = samples[i];
-                samples[i] = samples[j];
-                samples[j] = tmp;
-            }
-        }
-    }
-    long median = samples[iterations / 2];
-
-    char result[128];
-    snprintf(result, sizeof(result), "median_us=%ld", median);
-    return env->NewStringUTF(result);
-}
-
 // ================== CNTVCT_EL0 高精度侧信道检测 ==================
 
 #ifdef __aarch64__

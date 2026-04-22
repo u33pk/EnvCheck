@@ -31,6 +31,10 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         jni/property_util.cpp
         jni/ksu_detection.cpp
         jni/apatch_detection.cpp
+        jni/zygisk_next_detection.cpp
+        jni/xplike_detection.cpp
+        jni/susfs_detection.cpp
+        jni/soc_detection.cpp
         properties/property_info.cpp
         properties/system_properties.cpp
         gpu/vulkan_info.cpp)

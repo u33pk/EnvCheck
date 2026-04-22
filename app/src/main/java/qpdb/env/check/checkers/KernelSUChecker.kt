@@ -65,7 +65,6 @@ class KernelSUChecker : Checkable {
         CheckItem(name = "侧信道 - [ksu_driver] fd 扫描", checkPoint = "ksu_sc_fd", description = "等待检测..."),
         CheckItem(name = "侧信道 - CNTVCT 高精度 syscall 计时", checkPoint = "ksu_sc_cntvct", description = "等待检测..."),
         CheckItem(name = "侧信道 - setresuid 耗时异常", checkPoint = "ksu_sc_setresuid", description = "等待检测..."),
-        CheckItem(name = "侧信道 - fork-exit 生命周期延迟", checkPoint = "ksu_sc_fork_exit", description = "等待检测..."),
         CheckItem(name = "侧信道 - App 冷启动延迟", checkPoint = "ksu_sc_startup", description = "等待检测...")
     )
 
@@ -87,7 +86,6 @@ class KernelSUChecker : Checkable {
             "ksu_sc_fd" to 2,
             "ksu_sc_cntvct" to 0,
             "ksu_sc_setresuid" to 1,
-            "ksu_sc_fork_exit" to 1,
             "ksu_sc_startup" to 1
         )
 
@@ -113,7 +111,6 @@ class KernelSUChecker : Checkable {
             applyResult("ksu_sc_fd", checkSideChannelKsuFd())
             applyResult("ksu_sc_cntvct", checkSideChannelCntvctTiming())
             applyResult("ksu_sc_setresuid", checkSideChannelSetresuid())
-            applyResult("ksu_sc_fork_exit", checkSideChannelForkExit())
             applyResult("ksu_sc_startup", checkSideChannelAppStartup())
         } catch (e: Exception) {
             Log.e(TAG, "检测过程异常", e)
@@ -528,45 +525,6 @@ class KernelSUChecker : Checkable {
             }
         } catch (e: Exception) {
             CheckResult(CheckStatus.INFO, "setresuid 侧信道检测异常：${e.message}")
-        }
-    }
-
-    /**
-     * 侧信道：fork-exit 生命周期延迟
-     *
-     * fork 出的子进程会完整经历 zygote fork 后的初始化路径（含 setresuid / kernel_umount）。
-     * 测量 fork -> waitpid 的总耗时，可间接反映 KernelSU 对 App 启动的延迟影响。
-     */
-    private fun checkSideChannelForkExit(): CheckResult {
-        return try {
-            val result = KsuDetectionUtil.nativeCheckForkExitTiming()
-            if (result == "fork_failed") {
-                return CheckResult(CheckStatus.INFO, "fork 失败，无法测量 fork-exit 延迟")
-            }
-            val medianUs = result.substringAfter("median_us=").toLongOrNull() ?: -1
-            if (medianUs < 0) {
-                return CheckResult(CheckStatus.INFO, "fork-exit 计时数据异常：$result")
-            }
-
-            Log.d(TAG, "fork_exit median=${medianUs}us")
-
-            // 实测：Zygisk 注入场景下 fork-exit 差异明显，保留阈值判定
-            when {
-                medianUs > 10000 -> CheckResult(
-                    CheckStatus.FAIL,
-                    "fork-exit 生命周期延迟显著偏高（中位数 ${medianUs} us），存在 Zygisk / kernel_umount 注入迹象"
-                )
-                medianUs > 6000 -> CheckResult(
-                    CheckStatus.INFO,
-                    "fork-exit 生命周期延迟偏高（中位数 ${medianUs} us）"
-                )
-                else -> CheckResult(
-                    CheckStatus.PASS,
-                    "fork-exit 生命周期延迟正常（中位数 ${medianUs} us）"
-                )
-            }
-        } catch (e: Exception) {
-            CheckResult(CheckStatus.INFO, "fork-exit 侧信道检测异常：${e.message}")
         }
     }
 

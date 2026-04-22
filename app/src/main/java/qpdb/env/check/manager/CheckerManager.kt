@@ -43,6 +43,11 @@ object CheckerManager {
 //            qpdb.env.check.checkers.GpuChecker(),        // GPU 信息检测
 //            qpdb.env.check.checkers.KernelSUChecker(),   // KernelSU 检测
             qpdb.env.check.checkers.APatchChecker(),     // APatch 检测
+//            qpdb.env.check.checkers.ZygiskNextChecker(), // Zygisk Next 检测
+//            qpdb.env.check.checkers.XPLikeChecker(),     // XPLike 检测
+//            qpdb.env.check.checkers.SusfsChecker(),      // SUSFS 检测
+            qpdb.env.check.checkers.SoCChecker(),        // SoC 信息检测
+            qpdb.env.check.checkers.CameraChecker(),    // 摄像头检测
 //            qpdb.env.check.checkers.KernelInfoChecker(), // 内核信息检测
         )
     }
