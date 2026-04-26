@@ -48,6 +48,7 @@ object CheckerManager {
 //            qpdb.env.check.checkers.SusfsChecker(),      // SUSFS 检测
             qpdb.env.check.checkers.SoCChecker(),        // SoC 信息检测
             qpdb.env.check.checkers.CameraChecker(),    // 摄像头检测
+            qpdb.env.check.checkers.SensorChecker(),   // 传感器信息检测
 //            qpdb.env.check.checkers.KernelInfoChecker(), // 内核信息检测
         )
     }
