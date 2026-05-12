@@ -4,9 +4,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
-import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import qpdb.env.check.R
 import qpdb.env.check.model.Category
@@ -36,7 +35,6 @@ class CategoryAdapter(
     inner class CategoryViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val tvCategoryName: TextView = itemView.findViewById(R.id.tvCategoryName)
         private val tvStatus: TextView = itemView.findViewById(R.id.tvStatus)
-        private val progressBar: ProgressBar = itemView.findViewById(R.id.progressBar)
         private val ivExpand: ImageView = itemView.findViewById(R.id.ivExpand)
         private val categoryHeader: View = itemView.findViewById(R.id.categoryHeader)
         private val expandableContent: View = itemView.findViewById(R.id.expandableContent)
@@ -50,20 +48,19 @@ class CategoryAdapter(
 
             tvCategoryName.text = category.name
             updateStatusDisplay(category)
-            progressBar.progress = category.getProgress()
 
             ivExpand.rotation = if (category.isExpanded) 180f else 0f
             expandableContent.visibility = if (category.isExpanded) View.VISIBLE else View.GONE
 
             itemAdapter = ItemAdapter(category.items)
-            rvItems.layoutManager = LinearLayoutManager(itemView.context)
+            rvItems.layoutManager = GridLayoutManager(itemView.context, 2)
             rvItems.adapter = itemAdapter
 
             categoryHeader.setOnClickListener {
                 category.isExpanded = !category.isExpanded
                 ivExpand.rotation = if (category.isExpanded) 180f else 0f
                 expandableContent.visibility = if (category.isExpanded) View.VISIBLE else View.GONE
-                notifyItemChanged(adapterPosition)
+                notifyItemChanged(bindingAdapterPosition)
                 onCategoryExpanded(category, category.isExpanded)
             }
         }
@@ -125,53 +122,27 @@ class ItemAdapter(
 
     inner class ItemViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val tvItemName: TextView = itemView.findViewById(R.id.tvItemName)
-        private val tvCheckPoint: TextView = itemView.findViewById(R.id.tvCheckPoint)
-        private val tvItemDescription: TextView = itemView.findViewById(R.id.tvItemDescription)
         private val tvStatus: TextView = itemView.findViewById(R.id.tvStatus)
-        private val ivItemExpand: ImageView = itemView.findViewById(R.id.ivItemExpand)
-        private val itemHeader: View = itemView.findViewById(R.id.itemHeader)
-        private val itemDetailContent: View = itemView.findViewById(R.id.itemDetailContent)
-
-        private lateinit var currentItem: CheckItem
+        private val itemContainer: View = itemView.findViewById(R.id.itemContainer)
 
         fun bind(item: CheckItem) {
-            currentItem = item
-
             tvItemName.text = item.name
-            tvCheckPoint.text = item.checkPoint
-            tvItemDescription.text = item.description
-            tvCheckPoint.visibility = if (item.checkPoint.isNotEmpty()) View.VISIBLE else View.GONE
-            tvItemDescription.visibility = if (item.description.isNotEmpty()) View.VISIBLE else View.GONE
-
-            // 更新状态显示
             updateStatusDisplay(item)
-
-            // 点击展开/收起详情
-            itemHeader.setOnClickListener {
-                itemDetailContent.visibility = if (itemDetailContent.visibility == View.GONE) {
-                    ivItemExpand.rotation = 180f
-                    View.VISIBLE
-                } else {
-                    ivItemExpand.rotation = 0f
-                    View.GONE
-                }
-            }
         }
 
         private fun updateStatusDisplay(item: CheckItem) {
-            tvStatus.visibility = View.VISIBLE
             when (item.status) {
                 CheckStatus.PASS -> {
                     tvStatus.text = "通过"
-                    tvStatus.setBackgroundResource(R.drawable.status_passed)
+                    itemContainer.setBackgroundResource(R.drawable.status_passed)
                 }
                 CheckStatus.FAIL -> {
                     tvStatus.text = "不通过"
-                    tvStatus.setBackgroundResource(R.drawable.status_failed)
+                    itemContainer.setBackgroundResource(R.drawable.status_failed)
                 }
                 CheckStatus.INFO -> {
                     tvStatus.text = "信息"
-                    tvStatus.setBackgroundResource(R.drawable.status_info)
+                    itemContainer.setBackgroundResource(R.drawable.status_info)
                 }
             }
         }

@@ -50,6 +50,7 @@ object CheckerManager {
             qpdb.env.check.checkers.CameraChecker(),    // 摄像头检测
             qpdb.env.check.checkers.SensorChecker(),   // 传感器信息检测
             qpdb.env.check.checkers.OEMChecker(),       // OEM 服务检测
+            qpdb.env.check.checkers.PackageChecker(),   // 包名列表检测
 //            qpdb.env.check.checkers.KernelInfoChecker(), // 内核信息检测
         )
     }
@@ -105,7 +106,7 @@ object CheckerManager {
         CheckerRegistry.getAllCheckers().forEach { checker ->
             try {
                 Log.d(TAG, "执行检测器：${checker.categoryName}")
-                val category = Category(name = checker.categoryName, isExpanded = true)
+                val category = Category(name = checker.categoryName, isExpanded = false)
                     val checkItems = checker.runCheck().toMutableList()
 
                 Log.d(TAG, "检测器 ${checker.categoryName} 返回 ${checkItems.size} 个检测项")

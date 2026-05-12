@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.util.Log
 
 /**
  * Xiaomi / Redmi / POCO 品牌服务探针
@@ -46,8 +47,11 @@ object XiaomiProbe {
             }
             val resolveInfo = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
             if (resolveInfo != null) {
+                Log.i("OEM", "小米应用商店可处理 market 协议")
                 OEMServiceProbe.ProbeOutcome(OEMServiceProbe.ProbeResult.HIT, "小米应用商店可处理 market 协议")
+
             } else {
+                Log.i("OEM", "小米应用商店无法处理 market 协议")
                 OEMServiceProbe.ProbeOutcome(OEMServiceProbe.ProbeResult.MISS, "小米应用商店无法处理 market 协议")
             }
         } catch (e: Exception) {

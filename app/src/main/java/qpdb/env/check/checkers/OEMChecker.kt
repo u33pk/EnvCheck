@@ -11,9 +11,8 @@ import qpdb.env.check.model.CheckResult
 import qpdb.env.check.model.CheckStatus
 import qpdb.env.check.model.Checkable
 import qpdb.env.check.oem.OEMServiceProbe
+import qpdb.env.check.utils.PackageUtil
 import qpdb.env.check.utils.PropertyUtil
-import java.io.BufferedReader
-import java.io.InputStreamReader
 
 /**
  * OEM 服务与应用一致性检测器
@@ -399,35 +398,10 @@ class OEMChecker : Checkable {
     private fun checkSystemPackages(context: Context, brand: String): CheckResult {
         val pm = context.packageManager
 
-        // 多方案获取应用列表
-        val allPackages = mutableSetOf<String>()
+        // 使用 PackageUtil 获取多源包名并集
+        val allPackages = PackageUtil.getUnionPackages()
 
-        try {
-            val installed = pm.getInstalledPackages(0)
-            allPackages.addAll(installed.map { it.packageName })
-        } catch (e: Exception) {
-            Log.w(TAG, "getInstalledPackages 失败: ${e.message}")
-        }
-
-        try {
-            val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
-            allPackages.addAll(apps.map { it.packageName })
-        } catch (e: Exception) {
-            Log.w(TAG, "getInstalledApplications 失败: ${e.message}")
-        }
-
-        try {
-            val shellOutput = executeShell("pm list packages")
-            val shellPackages = shellOutput.lines()
-                .map { it.trim() }
-                .filter { it.startsWith("package:") }
-                .map { it.removePrefix("package:") }
-            allPackages.addAll(shellPackages)
-        } catch (e: Exception) {
-            Log.w(TAG, "shell pm list 失败: ${e.message}")
-        }
-
-        Log.d(TAG, "总应用包数 (多源合并): ${allPackages.size}")
+        Log.d(TAG, "总应用包数 (PackageUtil 并集): ${allPackages.size}")
 
         val matchedOEM = findMatchedOEM(brand)
 
@@ -702,18 +676,6 @@ class OEMChecker : Checkable {
 
     private fun getProp(property: String): String {
         return PropertyUtil.nativeGetProp(property)
-    }
-
-    private fun executeShell(command: String): String {
-        return try {
-            val process = Runtime.getRuntime().exec(command)
-            val reader = BufferedReader(InputStreamReader(process.inputStream))
-            val output = reader.readText()
-            reader.close()
-            output
-        } catch (e: Exception) {
-            ""
-        }
     }
 
     private data class OEMProfile(
