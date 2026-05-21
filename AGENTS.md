@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**EnvCheck** 是一款 Android 环境安全检测应用，包名为 `qpdb.env.check`。该应用用于检测 Android 设备的安全状态和环境配置，包括开发者模式、ADB 状态、网络环境、SIM 卡信息等。
+**EnvCheck** 是一款 Android 环境安全检测应用，包名为 `qpdb.env.check`。该应用用于检测 Android 设备的安全状态和环境配置，包括开发者模式、ADB 状态、网络环境、SIM 卡信息、Root 框架（KernelSU/APatch/ZygiskNext）、WXShadow 关联模块等。
 
 - **项目类型**: Android 应用（单模块项目）
 - **开发语言**: Kotlin（Java 11 目标），C++（JNI 原生代码）
@@ -36,6 +36,17 @@
 - `native-lib.cpp` - JNI 桥接代码
 - `properties/system_properties.cpp` - 直接读取 Android 系统属性
 - `properties/property_info.cpp` - 属性名称处理
+- `jni/wxshadow_detection.cpp` - WXShadow / Anti-Detect / Hide-Maps 综合检测
+- `jni/apatch_detection.cpp` - APatch 检测
+- `jni/ksu_detection.cpp` - KernelSU 检测
+- `jni/zygisk_next_detection.cpp` - ZygiskNext 检测
+- `jni/xplike_detection.cpp` - XPLike 检测
+- `jni/susfs_detection.cpp` - SUSFS 检测
+- `jni/soc_detection.cpp` - SoC 信息检测
+- `jni/file_util.cpp` - JNI 文件工具
+- `jni/property_util.cpp` - JNI 属性访问
+- `gpu/vulkan_info.cpp` - GPU Vulkan 信息
+- `utils/time_util.h` - 时间工具
 
 原生库名称为 "check"，通过 `System.loadLibrary("check")` 加载。
 
@@ -47,20 +58,36 @@ app/src/main/
 ├── cpp/                         # C++ 原生代码
 │   ├── CMakeLists.txt
 │   ├── native-lib.cpp
-│   └── properties/
+│   ├── gpu/
+│   ├── jni/
+│   ├── properties/
+│   └── utils/
 ├── java/qpdb/env/check/
 │   ├── EnvCheckApp.kt           # Application 类，提供全局 Context
 │   ├── MainActivity.kt          # 主界面，使用 RecyclerView 显示可展开的分类
 │   ├── adapter/                 # UI 适配器
 │   │   └── CategoryAdapter.kt
 │   ├── checkers/                # 检测器实现
+│   │   ├── APatchChecker.kt     # APatch 检测
 │   │   ├── BatteryChecker.kt    # 电池信息检测
 │   │   ├── BootloaderLockChecker.kt  # Bootloader 锁定状态检测
+│   │   ├── CameraChecker.kt     # 摄像头检测
 │   │   ├── DeveloperChecker.kt  # 开发者模式/ADB 检测
+│   │   ├── GpuChecker.kt        # GPU 信息检测
 │   │   ├── InputDeviceChecker.kt  # 输入设备检测
+│   │   ├── KernelInfoChecker.kt # 内核信息检测
+│   │   ├── KernelSUChecker.kt   # KernelSU 检测
 │   │   ├── NetworkChecker.kt    # 网络环境检测
+│   │   ├── OEMChecker.kt        # OEM 服务检测
+│   │   ├── PackageChecker.kt    # 包名列表检测
+│   │   ├── SensorChecker.kt     # 传感器信息检测
 │   │   ├── SimCardChecker.kt    # SIM 卡信息
-│   │   └── WebViewFingerPrintChecker.kt  # WebView 指纹检测
+│   │   ├── SoCChecker.kt        # SoC 信息检测
+│   │   ├── SusfsChecker.kt      # SUSFS 检测
+│   │   ├── WebViewFingerPrintChecker.kt  # WebView 指纹检测
+│   │   ├── WxShadowChecker.kt   # WXShadow / Anti-Detect / Hide-Maps 检测
+│   │   ├── XPLikeChecker.kt     # XPLike 检测
+│   │   └── ZygiskNextChecker.kt # ZygiskNext 检测
 │   ├── manager/                 # 管理器层
 │   │   ├── CheckerManager.kt    # 检测器注册与执行（单例）
 │   │   ├── DataManager.kt       # 数据更新与统计
@@ -73,18 +100,33 @@ app/src/main/
 │   │   ├── CheckResult.kt       # 检测结果
 │   │   └── CheckStatus.kt       # 检测状态枚举（PASS/FAIL/INFO）
 │   └── utils/                   # 工具类
+│       ├── ApatchDetectionUtil.kt
+│       ├── EmulatorDetector.kt
 │       ├── FileUtil.kt          # JNI 文件检查
+│       ├── GpuInfoUtil.kt
+│       ├── GpuNativeUtil.kt
 │       ├── HttpUtil.kt          # HTTP 请求
 │       ├── KeyStoreUtil.kt      # 证书枚举
+│       ├── KsuDetectionUtil.kt
 │       ├── NetworkUtil.kt       # 网络工具
 │       ├── OpenWrtUtil.kt       # OpenWrt 网关检测
+│       ├── PackageUtil.kt
 │       ├── PermissionUtil.kt    # 运行时权限处理
-│       └── PropertyUtil.kt      # JNI 属性访问
+│       ├── PropertyUtil.kt      # JNI 属性访问
+│       ├── SoCDetectionUtil.kt
+│       ├── SusfsDetectionUtil.kt
+│       ├── SystemPropertyUtil.kt
+│       ├── WxShadowDetectionUtil.kt
+│       ├── XPLikeUtil.kt
+│       └── ZygiskNextUtil.kt
 ├── res/                         # Android 资源文件
-│   ├── layout/
-│   │   ├── activity_main.xml    # 主界面布局
-│   │   ├── item_category.xml    # 分类项布局
-│   │   └── item_check.xml       # 检测项布局
+│   ├── drawable/
+│   │   └── dialog_background.xml
+│   └── layout/
+│       ├── activity_main.xml    # 主界面布局
+│       ├── dialog_check_detail.xml  # 检测详情对话框
+│       ├── item_category.xml    # 分类项布局
+│       └── item_check.xml       # 检测项布局
 └── test/                        # 单元测试
 ```
 
@@ -121,11 +163,16 @@ app/src/main/
 
 ```kotlin
 interface Checkable {
-    val categoryName: String           // 分类名称
-    fun checkList(): List<CheckItem>   // 获取检测项列表
-    fun runCheck(): List<CheckItem>    // 执行检测（默认调用 checkList()）
+    val categoryName: String                    // 分类名称
+    fun checkList(): List<CheckItem>            // 获取检测项列表
+    fun runCheck(): List<CheckItem>             // 执行检测（默认调用 checkList()）
+    suspend fun runCheckWithProgress(
+        onProgress: suspend (CheckItem) -> Unit
+    ): List<CheckItem>                          // 实时进度回调（默认一次性返回）
 }
 ```
+
+**实时进度**：`runCheckWithProgress` 允许每个检测项完成后立即回调，UI 实时更新对应 item 的状态，无需等待所有检测结束。
 
 ### 检测状态定义
 
@@ -133,23 +180,25 @@ interface Checkable {
 - `FAIL` - 检测失败（发现问题）
 - `INFO` - 信息状态（等待检测或中性信息）
 
-**重要**: `isPassed = true` 表示"安全/预期状态"，`false` 表示"检测到问题"。例如开发者模式已开启会返回 `FAIL`。
+状态显示在 UI 上：绿色（PASS）、红色（FAIL）、黄色（INFO）。点击 item 色块可弹出详情对话框，对话框头部颜色与状态一致。
 
 ### 检测器注册
 
-检测器在 `CheckerManager.registerDefaultCheckers()` 中注册：
+检测器在 `CheckerManager.registerDefaultCheckers()` 中注册。当前启用的检测器：
 
 ```kotlin
 CheckerRegistry.registerAll(
-    BatteryChecker(),      // 电池信息检测
-    DeveloperChecker(),    // 开发者模式和 ADB 检测
-    SimCardChecker(),      // SIM 卡信息检测
-    InputDeviceChecker(),  // 输入设备检测
-    NetworkChecker(),      // 网络环境检测
+    APatchChecker(),       // APatch 检测
+    SoCChecker(),          // SoC 信息检测
+    CameraChecker(),       // 摄像头检测
+    SensorChecker(),       // 传感器信息检测
+    OEMChecker(),          // OEM 服务检测
+    PackageChecker(),      // 包名列表检测
+    WxShadowChecker(),     // WXShadow / Anti-Detect / Hide-Maps 检测
 )
 ```
 
-当前已注释掉的检测器：`BootloaderLockChecker`、`WebViewFingerPrintChecker`。
+当前已注释掉的检测器：`BootloaderLockChecker`、`BatteryChecker`、`DeveloperChecker`、`SimCardChecker`、`WebViewFingerPrintChecker`、`InputDeviceChecker`、`NetworkChecker`、`GpuChecker`、`KernelSUChecker`、`ZygiskNextChecker`、`XPLikeChecker`、`SusfsChecker`、`KernelInfoChecker`。
 
 ### 模块结构
 
@@ -166,7 +215,8 @@ CheckerRegistry.registerAll(
 2. 重写 `categoryName` 属性定义分类名称
 3. 实现 `checkList()` 返回检测项列表
 4. 重写 `runCheck()` 执行实际检测逻辑
-5. 在 `CheckerManager.registerDefaultCheckers()` 中注册检测器
+5. 如需实时进度，重写 `runCheckWithProgress()`
+6. 在 `CheckerManager.registerDefaultCheckers()` 中注册检测器
 
 ### 代码风格
 
@@ -180,6 +230,7 @@ CheckerRegistry.registerAll(
 应用需要以下权限（在 `AndroidManifest.xml` 中声明）：
 
 ```xml
+<uses-feature android:glEsVersion="0x00020000" android:required="true" />
 <uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 <uses-permission android:name="android.permission.READ_PHONE_STATE" />
@@ -193,6 +244,7 @@ CheckerRegistry.registerAll(
 - 属性读取优先使用 `PropertyUtil.getProp()`（JNI 方式）
 - JNI 失败时回退到 shell 命令方式
 - 文件存在性检查使用 `FileUtil.fileExists()`（使用 stat 系统调用）
+- 新增 JNI 方法需在 `WxShadowDetectionUtil` 或对应 Util 类中声明 `external` 方法，并在 C++ 中实现对应签名的 JNI 函数
 
 ## Testing Strategy
 
@@ -222,6 +274,8 @@ CheckerRegistry.registerAll(
 2. **网络环境检测** - 检测 VPN、代理、透明代理、出口 IP 一致性
 3. **证书检测** - 枚举系统证书库，检测抓包工具植入的根证书
 4. **网关安全检测** - 检测 OpenWrt 网关是否可未授权访问
+5. **Root 框架检测** - KernelSU、APatch、ZygiskNext、SUSFS 等
+6. **WXShadow 关联检测** - 通过 Shadow Page 自读 page fault、BRK 时延指纹、prctl 探测检测 WXShadow；通过 syscall 不一致性和 kallsyms 扫描检测 Anti-Detect；通过 dl_iterate_phdr vs /proc/self/maps 对比检测 Hide-Maps
 
 ### 代码安全实践
 
@@ -233,13 +287,14 @@ CheckerRegistry.registerAll(
 
 ### 修改检测逻辑
 
-编辑对应检测器的 `runCheck()` 方法，返回包含适当 `CheckStatus` 的检测项列表。
+编辑对应检测器的 `runCheck()` 或 `runCheckWithProgress()` 方法，返回包含适当 `CheckStatus` 的检测项列表。
 
 ### 修改 UI
 
 - 主界面布局: `res/layout/activity_main.xml`
 - 分类项布局: `res/layout/item_category.xml`
 - 检测项布局: `res/layout/item_check.xml`
+- 详情对话框布局: `res/layout/dialog_check_detail.xml`
 - 适配器: `adapter/CategoryAdapter.kt`
 
 ### 更新依赖版本
