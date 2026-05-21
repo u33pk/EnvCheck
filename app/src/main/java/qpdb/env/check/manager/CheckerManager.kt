@@ -51,6 +51,7 @@ object CheckerManager {
             qpdb.env.check.checkers.SensorChecker(),   // 传感器信息检测
             qpdb.env.check.checkers.OEMChecker(),       // OEM 服务检测
             qpdb.env.check.checkers.PackageChecker(),   // 包名列表检测
+            qpdb.env.check.checkers.WxShadowChecker(),  // WXShadow / Anti-Detect / Hide-Maps 检测
 //            qpdb.env.check.checkers.KernelInfoChecker(), // 内核信息检测
         )
     }
@@ -126,6 +127,36 @@ object CheckerManager {
         Log.d(TAG, "检测完成：$passedCount/$totalCount 通过")
 
         categories
+    }
+
+    /**
+     * 执行所有检测，支持实时进度回调
+     * @param categories 已初始化的分类列表（与 CheckerRegistry 顺序一致）
+     * @param onCategoryProgress 每个检测项完成时的回调（在主线程执行）
+     */
+    suspend fun runChecksWithProgress(
+        categories: List<Category>,
+        onCategoryProgress: (Category) -> Unit
+    ) = withContext(Dispatchers.IO) {
+        val checkers = CheckerRegistry.getAllCheckers()
+        checkers.forEachIndexed { index, checker ->
+            val category = categories.getOrNull(index) ?: return@forEachIndexed
+            try {
+                Log.d(TAG, "开始执行检测器：${checker.categoryName}")
+                checker.runCheckWithProgress { item ->
+                    category.items.find { it.checkPoint == item.checkPoint }?.let { existing ->
+                        existing.status = item.status
+                        existing.description = item.description
+                    }
+                    withContext(Dispatchers.Main) {
+                        onCategoryProgress(category)
+                    }
+                }
+                Log.d(TAG, "检测器 ${checker.categoryName} 执行完成")
+            } catch (e: Exception) {
+                Log.e(TAG, "执行检测器 ${checker.categoryName} 失败：${e.message}", e)
+            }
+        }
     }
 
     /**

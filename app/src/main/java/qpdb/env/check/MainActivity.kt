@@ -139,7 +139,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * 运行所有检测（在后台线程执行，避免 NetworkOnMainThreadException）
+     * 运行所有检测（支持实时进度更新）
      */
     private fun runAllChecks() {
         Log.d(TAG, "用户触发运行检测")
@@ -147,15 +147,20 @@ class MainActivity : AppCompatActivity() {
         // 显示检测运行中提示
         UIManager.showCheckingMessage(binding.root)
 
-        // 在协程中执行检测（避免主线程网络操作）
         lifecycleScope.launch {
-            // 执行检测（在 IO 调度器上执行）
-            val categories = CheckerManager.runAllChecks()
-
-            // 更新 UI（自动切回主线程）
+            // 先加载初始分类（状态为等待检测）
+            val categories = CheckerManager.loadCategories()
+            categories.forEach { cat ->
+                cat.items.forEach { it.description = "检测中..." }
+            }
             DataManager.updateCategories(adapter, categories)
 
-            // 显示检测结果
+            // 执行检测，实时更新每个 item 的结果
+            CheckerManager.runChecksWithProgress(categories) { category ->
+                DataManager.updateCategoryStatus(adapter, category)
+            }
+
+            // 显示最终结果
             val stats = DataManager.getCategoryStatistics(categories)
             UIManager.showCheckResult(binding.root, stats.passedItems, stats.totalItems)
         }

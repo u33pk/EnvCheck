@@ -1,9 +1,13 @@
 package qpdb.env.check.adapter
 
+import android.app.Dialog
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -128,6 +132,10 @@ class ItemAdapter(
         fun bind(item: CheckItem) {
             tvItemName.text = item.name
             updateStatusDisplay(item)
+
+            itemView.setOnClickListener {
+                showDetailDialog(item)
+            }
         }
 
         private fun updateStatusDisplay(item: CheckItem) {
@@ -145,6 +153,35 @@ class ItemAdapter(
                     itemContainer.setBackgroundResource(R.drawable.status_info)
                 }
             }
+        }
+
+        private fun showDetailDialog(item: CheckItem) {
+            val context = itemView.context
+            val dialog = Dialog(context)
+            dialog.setContentView(R.layout.dialog_check_detail)
+
+            dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+            val headerContainer = dialog.findViewById<LinearLayout>(R.id.headerContainer)
+            val tvTitle = dialog.findViewById<TextView>(R.id.tvDialogTitle)
+            val tvStatus = dialog.findViewById<TextView>(R.id.tvDialogStatus)
+            val tvDesc = dialog.findViewById<TextView>(R.id.tvDialogDescription)
+            val btnConfirm = dialog.findViewById<TextView>(R.id.btnConfirm)
+
+            val (statusText, accentColorRes) = when (item.status) {
+                CheckStatus.PASS -> "通过" to R.drawable.status_passed
+                CheckStatus.FAIL -> "不通过" to R.drawable.status_failed
+                CheckStatus.INFO -> "信息" to R.drawable.status_info
+            }
+
+            headerContainer.setBackgroundResource(accentColorRes)
+            tvTitle.text = item.name
+            tvStatus.text = statusText
+            tvDesc.text = item.description
+
+            btnConfirm.setOnClickListener { dialog.dismiss() }
+
+            dialog.show()
         }
     }
 
