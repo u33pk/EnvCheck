@@ -8,7 +8,8 @@ data class Category(
     val id: String = java.util.UUID.randomUUID().toString(),
     val name: String,
     var isExpanded: Boolean = true,
-    val items: MutableList<CheckItem> = mutableListOf()
+    val items: MutableList<CheckItem> = mutableListOf(),
+    val displayMode: DisplayMode = DisplayMode.ITEM_LIST
 ) {
     fun getPassedCount(): Int = items.count { it.status == CheckStatus.PASS }
 

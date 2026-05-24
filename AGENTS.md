@@ -72,6 +72,7 @@ app/src/main/
 │   │   ├── BatteryChecker.kt    # 电池信息检测
 │   │   ├── BootloaderLockChecker.kt  # Bootloader 锁定状态检测
 │   │   ├── CameraChecker.kt     # 摄像头检测
+│   │   ├── PropertyChecker.kt   # 属性对比检测器（Diff Pixel Map + Entropy Curve）
 │   │   ├── DeveloperChecker.kt  # 开发者模式/ADB 检测
 │   │   ├── GpuChecker.kt        # GPU 信息检测
 │   │   ├── InputDeviceChecker.kt  # 输入设备检测
@@ -98,8 +99,12 @@ app/src/main/
 │   │   ├── CheckerRegistry.kt   # 检测器注册表
 │   │   ├── CheckItem.kt         # 检测项数据类
 │   │   ├── CheckResult.kt       # 检测结果
-│   │   └── CheckStatus.kt       # 检测状态枚举（PASS/FAIL/INFO）
-│   └── utils/                   # 工具类
+│   │   ├── CheckStatus.kt       # 检测状态枚举（PASS/FAIL/INFO）
+│   │   └── DisplayMode.kt       # 展示模式枚举（ITEM_LIST/CANVAS）
+│   ├── utils/                   # 工具类
+│   ├── view/                    # 自定义视图
+│       ├── DiffPixelMapView.kt  # 属性差异像素图
+│       └── EntropyCurveView.kt  # 属性复杂度熵曲线图
 │       ├── ApatchDetectionUtil.kt
 │       ├── EmulatorDetector.kt
 │       ├── FileUtil.kt          # JNI 文件检查
@@ -164,13 +169,19 @@ app/src/main/
 ```kotlin
 interface Checkable {
     val categoryName: String                    // 分类名称
+    val displayMode: DisplayMode                // 展示模式（默认 ITEM_LIST）
     fun checkList(): List<CheckItem>            // 获取检测项列表
     fun runCheck(): List<CheckItem>             // 执行检测（默认调用 checkList()）
     suspend fun runCheckWithProgress(
         onProgress: suspend (CheckItem) -> Unit
     ): List<CheckItem>                          // 实时进度回调（默认一次性返回）
+    fun createCanvasView(context: Context): View? = null  // Canvas 模式视图
 }
 ```
+
+**展示模式（DisplayMode）**：
+- `ITEM_LIST`（默认）— 分类展开后显示 `CheckItem` 网格列表。
+- `CANVAS` — 分类展开后显示自定义 `View`（由 `createCanvasView()` 提供），不显示检测项列表。适用于需要自定义绘制或复杂交互 UI 的检测器。
 
 **实时进度**：`runCheckWithProgress` 允许每个检测项完成后立即回调，UI 实时更新对应 item 的状态，无需等待所有检测结束。
 
@@ -195,6 +206,7 @@ CheckerRegistry.registerAll(
     OEMChecker(),          // OEM 服务检测
     PackageChecker(),      // 包名列表检测
     WxShadowChecker(),     // WXShadow / Anti-Detect / Hide-Maps 检测
+    PropertyChecker(),     // 属性对比检测
 )
 ```
 
@@ -217,6 +229,17 @@ CheckerRegistry.registerAll(
 4. 重写 `runCheck()` 执行实际检测逻辑
 5. 如需实时进度，重写 `runCheckWithProgress()`
 6. 在 `CheckerManager.registerDefaultCheckers()` 中注册检测器
+
+#### 添加 Canvas 模式检测器
+
+若检测器需要自定义绘制而非 item 列表：
+
+1. 重写 `displayMode = DisplayMode.CANVAS`
+2. `checkList()` 可返回空列表
+3. 重写 `createCanvasView(context)` 返回自定义 `View`（如继承 `View` 并实现 `onDraw`）
+4. **注意**：RecyclerView 会复用 ViewHolder，不要在 Adapter 中全局缓存 Canvas View；每次 `createCanvasView()` 应返回新实例，或在 ViewHolder 级别管理生命周期
+
+参考实现：`PropertyChecker` + `DiffPixelMapView` / `EntropyCurveView`
 
 ### 代码风格
 

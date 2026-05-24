@@ -38,6 +38,13 @@ int native_getprop(const char *prop_name, char *buffer, size_t buffer_size);
  */
 int native_setprop(const char *prop_name, const char *prop_value);
 
+/**
+ * 获取所有系统属性
+ * @param out_len 输出字符串长度（可选）
+ * @return 包含所有属性的字符串（key=value\n 格式），调用者需用 free 释放；失败返回 NULL
+ */
+char *native_getallprop(size_t *out_len);
+
 #ifdef __cplusplus
 }
 #endif
@@ -45,8 +52,9 @@ int native_setprop(const char *prop_name, const char *prop_value);
 #define PROP_NAME_MAX  32
 #define PROP_VALUE_MAX 92
 
-#define AREA_SIZE         (128 * 1024)
-#define AREA_DATA_SIZE     (AREA_SIZE - sizeof(prop_area))
+#define AREA_SIZE              (128 * 1024)
+#define PROP_AREA_MAGIC        0x504f5250
+#define PROP_AREA_VERSION      0xfc6ed0ab
 
 #define ANDROID_N   24
 #define ANDROID_O   26
@@ -101,6 +109,9 @@ typedef struct prop_area {
     uint32_t reserved[28];
     char data[0];
 } prop_area;
+
+// 动态 area data size，在 map_prop_area 中根据实际文件大小设置
+static size_t g_area_data_size = AREA_SIZE - sizeof(prop_area);
 
 int g_log_type = LOG_TYPE_CONSOLE + LOG_TYPE_LOGCAT; // 默认输出到 logcat 和 console
 bool g_need_security_context = false;
@@ -269,8 +280,8 @@ prop_area *map_prop_area(const char *file_name, bool need_write) {
         close(fd);
         return NULL;
     }
-    if (fd_stat.st_size != AREA_SIZE) {
-        print_log("file [%s] size is not equal %x\n", file_name, AREA_SIZE);
+    if (fd_stat.st_size < (off_t)sizeof(prop_area)) {
+        print_log("file [%s] size too small: %ld < %zu\n", file_name, (long)fd_stat.st_size, sizeof(prop_area));
         close(fd);
         return NULL;
     }
@@ -281,11 +292,21 @@ prop_area *map_prop_area(const char *file_name, bool need_write) {
         return NULL;
     }
     close(fd);
-    return (prop_area*) addr;
+
+    prop_area *pa = (prop_area*)addr;
+    if (pa->magic != PROP_AREA_MAGIC || pa->version != PROP_AREA_VERSION) {
+        print_log("file [%s] magic/version mismatch: magic=0x%x version=0x%x\n",
+                  file_name, pa->magic, pa->version);
+        munmap(addr, fd_stat.st_size);
+        return NULL;
+    }
+
+    g_area_data_size = fd_stat.st_size - sizeof(prop_area);
+    return pa;
 }
 
 prop_bt *get_prop_bt(prop_area *p_area, uint32_t off) {
-    if (off > AREA_DATA_SIZE) {
+    if (off > g_area_data_size) {
         fprintf(stderr, "exceed the limit\n");
         return NULL;
     }
@@ -294,8 +315,8 @@ prop_bt *get_prop_bt(prop_area *p_area, uint32_t off) {
 
 prop_bt *new_prop_bt(prop_area *p_area, const char *name, uint8_t namelen, uint32_t *off) {
     uint32_t need_size = ALIGN(sizeof(prop_bt) + namelen + 1, sizeof(uint32_t));
-    if (p_area->bytes_used + need_size > AREA_DATA_SIZE) {
-        fprintf(stderr, "no enough space, total:[%u] used:[%u], need:[%u]\n", AREA_DATA_SIZE,
+    if (p_area->bytes_used + need_size > g_area_data_size) {
+        fprintf(stderr, "no enough space, total:[%zu] used:[%u], need:[%u]\n", g_area_data_size,
                 p_area->bytes_used, need_size);
         return NULL;
     }
@@ -310,7 +331,7 @@ prop_bt *new_prop_bt(prop_area *p_area, const char *name, uint8_t namelen, uint3
 }
 
 prop_info *get_prop_info(prop_area *p_area, uint32_t off) {
-    if (off > AREA_DATA_SIZE) {
+    if (off > g_area_data_size) {
         fprintf(stderr, "exceed the limit\n");
         return NULL;
     }
@@ -320,8 +341,8 @@ prop_info *get_prop_info(prop_area *p_area, uint32_t off) {
 
 prop_info *new_prop_info(prop_area *p_area, const char *prop_name, uint8_t namelen, uint32_t *off) {
     uint32_t need_size = ALIGN(sizeof(prop_info) + namelen + 1, sizeof(uint32_t));
-    if (p_area->bytes_used + need_size > AREA_DATA_SIZE) {
-        fprintf(stderr, "no enough space, total:[%u] used:[%u], need:[%u]\n", AREA_DATA_SIZE,
+    if (p_area->bytes_used + need_size > g_area_data_size) {
+        fprintf(stderr, "no enough space, total:[%zu] used:[%u], need:[%u]\n", g_area_data_size,
                 p_area->bytes_used, need_size);
         return NULL;
     }
@@ -438,6 +459,34 @@ void dump_all() {
             }
         }
 
+    }
+}
+
+/**
+ * 递归收集属性到 std::string（C++ 辅助函数）
+ */
+static void collect_recursive_string(prop_area *p_area, uint32_t off, std::string &result) {
+    prop_bt *p_bt = get_prop_bt(p_area, off);
+    if (p_bt == NULL) {
+        return;
+    }
+    if (p_bt->prop != 0) {
+        prop_info *p_info = get_prop_info(p_area, p_bt->prop);
+        if (p_info != NULL) {
+            result.append(p_info->name);
+            result.append("=");
+            result.append(p_info->value);
+            result.append("\n");
+        }
+    }
+    if (p_bt->left != 0) {
+        collect_recursive_string(p_area, p_bt->left, result);
+    }
+    if (p_bt->right != 0) {
+        collect_recursive_string(p_area, p_bt->right, result);
+    }
+    if (p_bt->children != 0) {
+        collect_recursive_string(p_area, p_bt->children, result);
     }
 }
 
@@ -609,10 +658,10 @@ int native_getprop(const char *prop_name, char *buffer, size_t buffer_size) {
     }
 
     // 先尝试使用系统 API
-    int len = __system_property_get(prop_name, buffer);
-    if (len > 0) {
-        return 0;
-    }
+//    int len = __system_property_get(prop_name, buffer);
+//    if (len > 0) {
+//        return 0;
+//    }
 
     // 系统 API 失败时，使用自定义方式读取
     initialize_property_contexts();
@@ -672,10 +721,10 @@ int native_setprop(const char *prop_name, const char *prop_value) {
     }
 
     // 检查是否是 ro. 开头的属性 (只读)
-    if (strncmp(prop_name, "ro.", 3) == 0) {
-        fprintf(stderr, "cannot set read-only property: %s\n", prop_name);
-        return -1;
-    }
+//    if (strncmp(prop_name, "ro.", 3) == 0) {
+//        fprintf(stderr, "cannot set read-only property: %s\n", prop_name);
+//        return -1;
+//    }
 
     // 检查 root 权限
     if (geteuid() != 0) {
@@ -718,6 +767,83 @@ int native_setprop(const char *prop_name, const char *prop_value) {
     }
 
     return -1;
+}
+
+// ==================== __system_property_foreach fallback ====================
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
+static void prop_foreach_cb(const prop_info *pi, void *cookie) {
+    std::string *result = (std::string*)cookie;
+    char name[PROP_NAME_MAX];
+    char value[PROP_VALUE_MAX];
+    int len = __system_property_read(pi, name, value);
+    if (len > 0 && name[0] != '\0') {
+        result->append(name);
+        result->append("=");
+        result->append(value);
+        result->append("\n");
+    }
+}
+
+#pragma clang diagnostic pop
+
+static void collect_props_fallback(std::string &result) {
+    __system_property_foreach(prop_foreach_cb, &result);
+}
+
+/**
+ * 获取所有系统属性
+ * 返回格式：每行一个 key=value，调用者需用 free() 释放返回的指针
+ */
+char *native_getallprop(size_t *out_len) {
+    std::string result;
+    result.reserve(512 * 1024);
+
+    initialize_property_contexts();
+
+    if (get_sdk_version() < ANDROID_N) {
+        prop_area *p_area = map_prop_area(PROPERTIES_FILE, false);
+        if (p_area != NULL) {
+            collect_recursive_string(p_area, 0, result);
+        }
+    } else {
+        if (g_use_file) {
+            for (context_node *p_context = g_contexts; p_context != NULL; p_context = p_context->next) {
+                char context_file[128] = PROPERTIES_FILE;
+                strcat(context_file, "/");
+                strcat(context_file, p_context->name);
+                prop_area *p_area = map_prop_area(context_file, false);
+                if (p_area != NULL) {
+                    collect_recursive_string(p_area, 0, result);
+                }
+            }
+        } else {
+            for (uint32_t i = 0; i < g_info.get_context_size(); i++) {
+                char context_file[128] = PROPERTIES_FILE;
+                strcat(context_file, "/");
+                strcat(context_file, g_info.get_context(i).c_str());
+                prop_area *p_area = map_prop_area(context_file, false);
+                if (p_area != NULL) {
+                    collect_recursive_string(p_area, 0, result);
+                }
+            }
+        }
+    }
+
+    // 当 mmap 方式未读到任何属性时，fallback 到官方 API
+    if (result.empty()) {
+        collect_props_fallback(result);
+        print_log("use collect_props_fallback");
+    }
+
+    char *buffer = (char *)malloc(result.length() + 1);
+    if (buffer) {
+        memcpy(buffer, result.c_str(), result.length() + 1);
+    }
+    if (out_len) *out_len = result.length();
+    return buffer;
 }
 
 #ifdef __cplusplus

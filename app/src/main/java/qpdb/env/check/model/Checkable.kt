@@ -1,5 +1,8 @@
 package qpdb.env.check.model
 
+import android.content.Context
+import android.view.View
+
 /**
  * 可检测接口
  * 所有检测类需要实现此接口
@@ -9,6 +12,11 @@ interface Checkable {
      * 获取分类名称
      */
     val categoryName: String
+
+    /**
+     * 内容展示模式，默认为列表
+     */
+    val displayMode: DisplayMode get() = DisplayMode.ITEM_LIST
 
     /**
      * 获取检测列表
@@ -33,4 +41,10 @@ interface Checkable {
         results.forEach { onProgress(it) }
         return results
     }
+
+    /**
+     * 创建 Canvas 视图
+     * 仅在 displayMode 为 CANVAS 时调用
+     */
+    fun createCanvasView(context: Context): View? = null
 }

@@ -7,6 +7,7 @@ import qpdb.env.check.model.Category
 import qpdb.env.check.model.CheckItem
 import qpdb.env.check.model.Checkable
 import qpdb.env.check.model.CheckerRegistry
+import qpdb.env.check.model.DisplayMode
 
 /**
  * 检测器管理器
@@ -52,6 +53,7 @@ object CheckerManager {
             qpdb.env.check.checkers.OEMChecker(),       // OEM 服务检测
             qpdb.env.check.checkers.PackageChecker(),   // 包名列表检测
             qpdb.env.check.checkers.WxShadowChecker(),  // WXShadow / Anti-Detect / Hide-Maps 检测
+            qpdb.env.check.checkers.PropertyChecker(),  // 属性对比检测
 //            qpdb.env.check.checkers.KernelInfoChecker(), // 内核信息检测
         )
     }
@@ -80,16 +82,22 @@ object CheckerManager {
         val categories = mutableListOf<Category>()
 
         CheckerRegistry.getAllCheckers().forEach { checker ->
-            val category = Category(name = checker.categoryName, isExpanded = false)
-            val checkItems = checker.checkList().map { item ->
-                CheckItem(
-                    name = item.name,
-                    checkPoint = item.checkPoint,
-                    description = item.description,
-                    status = item.status
-                )
-            }.toMutableList()
-            category.items.addAll(checkItems)
+            val category = Category(
+                name = checker.categoryName,
+                isExpanded = false,
+                displayMode = checker.displayMode
+            )
+            if (checker.displayMode == DisplayMode.ITEM_LIST) {
+                val checkItems = checker.checkList().map { item ->
+                    CheckItem(
+                        name = item.name,
+                        checkPoint = item.checkPoint,
+                        description = item.description,
+                        status = item.status
+                    )
+                }.toMutableList()
+                category.items.addAll(checkItems)
+            }
             categories.add(category)
         }
 
@@ -107,15 +115,20 @@ object CheckerManager {
         CheckerRegistry.getAllCheckers().forEach { checker ->
             try {
                 Log.d(TAG, "执行检测器：${checker.categoryName}")
-                val category = Category(name = checker.categoryName, isExpanded = false)
+                val category = Category(
+                    name = checker.categoryName,
+                    isExpanded = false,
+                    displayMode = checker.displayMode
+                )
+                if (checker.displayMode == DisplayMode.ITEM_LIST) {
                     val checkItems = checker.runCheck().toMutableList()
 
-                Log.d(TAG, "检测器 ${checker.categoryName} 返回 ${checkItems.size} 个检测项")
-                checkItems.forEach { item ->
-                    Log.d(TAG, "  - ${item.name}: status=${item.status}")
+                    Log.d(TAG, "检测器 ${checker.categoryName} 返回 ${checkItems.size} 个检测项")
+                    checkItems.forEach { item ->
+                        Log.d(TAG, "  - ${item.name}: status=${item.status}")
+                    }
+                    category.items.addAll(checkItems)
                 }
-
-                category.items.addAll(checkItems)
                 categories.add(category)
             } catch (e: Exception) {
                 Log.e(TAG, "执行检测器 ${checker.categoryName} 失败：${e.message}", e)
@@ -142,6 +155,10 @@ object CheckerManager {
         checkers.forEachIndexed { index, checker ->
             val category = categories.getOrNull(index) ?: return@forEachIndexed
             try {
+                if (checker.displayMode == DisplayMode.CANVAS) {
+                    // Canvas 模式没有 item 进度，无需回调
+                    return@forEachIndexed
+                }
                 Log.d(TAG, "开始执行检测器：${checker.categoryName}")
                 checker.runCheckWithProgress { item ->
                     category.items.find { it.checkPoint == item.checkPoint }?.let { existing ->
@@ -157,6 +174,13 @@ object CheckerManager {
                 Log.e(TAG, "执行检测器 ${checker.categoryName} 失败：${e.message}", e)
             }
         }
+    }
+
+    /**
+     * 根据分类名称获取检测器
+     */
+    fun getCheckerByCategoryName(name: String): Checkable? {
+        return CheckerRegistry.getAllCheckers().find { it.categoryName == name }
     }
 
     /**

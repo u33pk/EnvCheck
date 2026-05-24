@@ -47,6 +47,11 @@ class WxShadowChecker : Checkable {
                 checkPoint = "wxshadow_prctl",
                 description = "等待检测..."
             ),
+            CheckItem(
+                name = "WXShadow prctl时间侧信道",
+                checkPoint = "wxshadow_prctl_timing",
+                description = "等待检测..."
+            ),
             // Anti-Detect 检测
             CheckItem(
                 name = "Anti-Detect Hook不一致",
@@ -137,6 +142,14 @@ class WxShadowChecker : Checkable {
             }
             emit("wxshadow_prctl")
             if (prctlResult.status == CheckStatus.FAIL) totalScore += 3
+
+            val prctlTimingResult = checkWxShadowPrctlTiming()
+            items.find { it.checkPoint == "wxshadow_prctl_timing" }?.let {
+                it.status = prctlTimingResult.status
+                it.description = prctlTimingResult.description
+            }
+            emit("wxshadow_prctl_timing")
+            if (prctlTimingResult.status == CheckStatus.FAIL) totalScore += 6
 
             // ===== Anti-Detect 检测 =====
             val inconsistencyResult = checkSyscallInconsistency()
@@ -281,6 +294,47 @@ class WxShadowChecker : Checkable {
             }
         } catch (e: Exception) {
             Log.e(TAG, "checkWxShadowPrctl 出错：${e.message}")
+            CheckResult(CheckStatus.FAIL, "检测失败：${e.message}")
+        }
+    }
+
+    /**
+     * prctl 高精度时间侧信道探测
+     * 原理：对比 0x57580001-0x57580008 与不存在选项 0xfacebeef 的 prctl 耗时中位数
+     * 使用 CNTVCT_EL0（aarch64）高精度计时，各采集 2000 个样本排序取中位数
+     * 若 max_ratio > 2.0 或 anomaly >= 3，判定存在 WXShadow prctl hook
+     */
+    private fun checkWxShadowPrctlTiming(): CheckResult {
+        return try {
+            val result = WxShadowDetectionUtil.nativeCheckPrctlTimingSideChannel()
+            Log.i(TAG, "WXShadow prctl timing: $result")
+
+            val baseline = parseLongValue(result, "baseline")
+            val wxAvg = parseLongValue(result, "wx_avg")
+            val wxMin = parseLongValue(result, "wx_min")
+            val wxMax = parseLongValue(result, "wx_max")
+            val maxRatio = parseDoubleValue(result, "max_ratio")
+            val anomaly = parseIntValue(result, "anomaly")
+            val threshold = parseDoubleValue(result, "threshold")
+
+            val desc = buildString {
+                append("baseline=${baseline}cycles, ")
+                append("wx_avg=${wxAvg}cycles, ")
+                append("wx_min=${wxMin}cycles, ")
+                append("wx_max=${wxMax}cycles, ")
+                append("max_ratio=${String.format("%.2f", maxRatio)}, ")
+                append("anomaly=${anomaly}/${8}")
+            }
+
+            if (maxRatio != null && threshold != null && maxRatio > threshold) {
+                CheckResult(CheckStatus.FAIL, "检测到 prctl 时间侧信道异常: $desc")
+            } else if (anomaly != null && anomaly >= 3) {
+                CheckResult(CheckStatus.FAIL, "多个 prctl 选项耗时异常: $desc")
+            } else {
+                CheckResult(CheckStatus.PASS, "prctl 时间侧信道正常: $desc")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "checkWxShadowPrctlTiming 出错：${e.message}")
             CheckResult(CheckStatus.FAIL, "检测失败：${e.message}")
         }
     }
@@ -483,5 +537,14 @@ class WxShadowChecker : Checkable {
         val pattern = "$key=(-?\\d+)".toRegex()
         val match = pattern.find(result)
         return match?.groupValues?.get(1)?.toLongOrNull()
+    }
+
+    /**
+     * 从 "key=value|key2=value2" 格式字符串中解析 double 值
+     */
+    private fun parseDoubleValue(result: String, key: String): Double? {
+        val pattern = "$key=(-?\\d+\\.?\\d*)".toRegex()
+        val match = pattern.find(result)
+        return match?.groupValues?.get(1)?.toDoubleOrNull()
     }
 }

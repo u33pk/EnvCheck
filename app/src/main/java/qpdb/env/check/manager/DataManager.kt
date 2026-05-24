@@ -63,7 +63,8 @@ object DataManager {
                 id = category.id,
                 name = category.name,
                 isExpanded = category.isExpanded,
-                items = category.items.map { it.copy() }.toMutableList()
+                items = category.items.map { it.copy() }.toMutableList(),
+                displayMode = category.displayMode
             )
         }
     }

@@ -29,6 +29,14 @@ object PropertyUtil {
     external fun nativeSetProp(name: String, value: String): Boolean
 
     /**
+     * 获取所有系统属性（JNI 原生方法）
+     *
+     * @return 所有可读的属性字符串，格式为每行 "key=value"
+     */
+    @JvmStatic
+    external fun nativeGetAllProp(): String
+
+    /**
      * 获取系统属性值 (Kotlin 风格包装)
      *
      * @param name 属性名称
@@ -50,5 +58,28 @@ object PropertyUtil {
     @JvmStatic
     fun setProp(name: String, value: String): Boolean {
         return nativeSetProp(name, value)
+    }
+
+    /**
+     * 获取所有系统属性 (Kotlin 风格包装)
+     *
+     * @return 所有可读属性的 Map<name, value>，失败返回空 Map
+     */
+    @JvmStatic
+    fun getAllProp(): Map<String, String> {
+        val result = mutableMapOf<String, String>()
+        val allProps = nativeGetAllProp()
+        if (allProps.isEmpty()) {
+            return result
+        }
+        allProps.lineSequence().forEach { line ->
+            val idx = line.indexOf('=')
+            if (idx > 0) {
+                val key = line.substring(0, idx)
+                val value = line.substring(idx + 1)
+                result[key] = value
+            }
+        }
+        return result
     }
 }

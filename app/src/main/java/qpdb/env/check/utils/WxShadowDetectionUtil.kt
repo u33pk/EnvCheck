@@ -35,6 +35,15 @@ object WxShadowDetectionUtil {
     @JvmStatic
     external fun nativeCheckPrctlProbe(): String
 
+    /**
+     * prctl 高精度时间侧信道探测
+     * 原理：对比 0x57580001-0x57580008 与不存在选项 0xfacebeef 的 prctl 耗时中位数差异
+     * 使用 CNTVCT_EL0（aarch64）或 CLOCK_MONOTONIC 高精度计时
+     * @return 格式：baseline=xxx|wx_avg=xxx|wx_min=xxx|wx_max=xxx|max_ratio=xxx|anomaly=xxx|threshold=xxx
+     */
+    @JvmStatic
+    external fun nativeCheckPrctlTimingSideChannel(): String
+
     // ========== Anti-Detect 检测 ==========
 
     /**

@@ -6,14 +6,17 @@ import android.graphics.drawable.ColorDrawable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import qpdb.env.check.R
+import qpdb.env.check.manager.CheckerManager
 import qpdb.env.check.model.Category
 import qpdb.env.check.model.CheckItem
+import qpdb.env.check.model.DisplayMode
 import qpdb.env.check.model.CheckStatus
 
 class CategoryAdapter(
@@ -23,6 +26,7 @@ class CategoryAdapter(
 
     // 创建列表的副本，避免与外部引用共享
     private val categories: MutableList<Category> = categories.toMutableList()
+
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CategoryViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -43,6 +47,7 @@ class CategoryAdapter(
         private val categoryHeader: View = itemView.findViewById(R.id.categoryHeader)
         private val expandableContent: View = itemView.findViewById(R.id.expandableContent)
         private val rvItems: RecyclerView = itemView.findViewById(R.id.rvItems)
+        private val flCanvasContainer: FrameLayout = itemView.findViewById(R.id.flCanvasContainer)
 
         private lateinit var currentCategory: Category
         private lateinit var itemAdapter: ItemAdapter
@@ -51,14 +56,28 @@ class CategoryAdapter(
             currentCategory = category
 
             tvCategoryName.text = category.name
-            updateStatusDisplay(category)
+
+            if (category.displayMode == DisplayMode.CANVAS) {
+                tvStatus.visibility = View.GONE
+            } else {
+                tvStatus.visibility = View.VISIBLE
+                updateStatusDisplay(category)
+            }
 
             ivExpand.rotation = if (category.isExpanded) 180f else 0f
             expandableContent.visibility = if (category.isExpanded) View.VISIBLE else View.GONE
 
-            itemAdapter = ItemAdapter(category.items)
-            rvItems.layoutManager = GridLayoutManager(itemView.context, 2)
-            rvItems.adapter = itemAdapter
+            if (category.displayMode == DisplayMode.CANVAS) {
+                rvItems.visibility = View.GONE
+                flCanvasContainer.visibility = View.VISIBLE
+                setupCanvasView(category)
+            } else {
+                rvItems.visibility = View.VISIBLE
+                flCanvasContainer.visibility = View.GONE
+                itemAdapter = ItemAdapter(category.items)
+                rvItems.layoutManager = GridLayoutManager(itemView.context, 2)
+                rvItems.adapter = itemAdapter
+            }
 
             categoryHeader.setOnClickListener {
                 category.isExpanded = !category.isExpanded
@@ -67,6 +86,18 @@ class CategoryAdapter(
                 notifyItemChanged(bindingAdapterPosition)
                 onCategoryExpanded(category, category.isExpanded)
             }
+        }
+
+        private fun setupCanvasView(category: Category) {
+            flCanvasContainer.removeAllViews()
+            val canvasView = CheckerManager.getCheckerByCategoryName(category.name)
+                ?.createCanvasView(itemView.context)
+                ?: TextView(itemView.context).apply {
+                    text = "Canvas"
+                    setTextColor(Color.WHITE)
+                    gravity = android.view.Gravity.CENTER
+                }
+            flCanvasContainer.addView(canvasView)
         }
 
         private fun updateStatusDisplay(category: Category) {

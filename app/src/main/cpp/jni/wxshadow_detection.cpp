@@ -125,6 +125,110 @@ Java_qpdb_env_check_utils_WxShadowDetectionUtil_nativeCheckPrctlProbe(
     return env->NewStringUTF(result);
 }
 
+// ==================== 3.5 WXShadow: prctl 高精度时间侧信道探测 ====================
+
+#ifdef __aarch64__
+
+static inline uint64_t read_cntvct_el0_wx(void) {
+    uint64_t val;
+    __asm__ __volatile__ ("isb; mrs %0, cntvct_el0; isb" : "=r" (val));
+    return val;
+}
+
+#else
+
+static inline uint64_t read_cntvct_el0_wx(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+}
+
+#endif
+
+static int compare_u64_wx(const void* a, const void* b) {
+    uint64_t av = *(const uint64_t*)a;
+    uint64_t bv = *(const uint64_t*)b;
+    if (av < bv) return -1;
+    if (av > bv) return 1;
+    return 0;
+}
+
+static uint64_t median_prctl_time(int option, int samples) {
+    uint64_t* times = (uint64_t*)malloc(samples * sizeof(uint64_t));
+    if (!times) return 0;
+
+    for (int i = 0; i < samples; i++) {
+        uint64_t start = read_cntvct_el0_wx();
+        prctl(option, 0, 0, 0, 0);
+        uint64_t end = read_cntvct_el0_wx();
+        times[i] = end - start;
+    }
+
+    qsort(times, samples, sizeof(uint64_t), compare_u64_wx);
+    uint64_t median = times[samples / 2];
+    free(times);
+    return median;
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_qpdb_env_check_utils_WxShadowDetectionUtil_nativeCheckPrctlTimingSideChannel(
+        JNIEnv* env, jclass clazz) {
+    const int NUM_SAMPLES = 2000;
+    const int NUM_WX_OPTS = 8;
+    const uint32_t WX_OPTS[NUM_WX_OPTS] = {
+        0x57580001, 0x57580002, 0x57580003, 0x57580004,
+        0x57580005, 0x57580006, 0x57580007, 0x57580008
+    };
+    const uint32_t BASELINE_OPT = 0xfacebeef;
+    const double THRESHOLD_RATIO = 2.0;
+
+    // 预热缓存
+    for (int i = 0; i < 50; i++) {
+        prctl(BASELINE_OPT, 0, 0, 0, 0);
+        prctl(WX_OPTS[0], 0, 0, 0, 0);
+    }
+
+    // 测量 baseline（不存在的选项）
+    uint64_t baseline = median_prctl_time((int)BASELINE_OPT, NUM_SAMPLES);
+
+    // 测量每个 WXShadow 选项
+    uint64_t wx_times[NUM_WX_OPTS];
+    for (int i = 0; i < NUM_WX_OPTS; i++) {
+        wx_times[i] = median_prctl_time((int)WX_OPTS[i], NUM_SAMPLES);
+    }
+
+    // 统计异常：WXShadow 选项耗时显著不同于 baseline
+    int anomaly_count = 0;
+    uint64_t max_wx = 0;
+    uint64_t min_wx = UINT64_MAX;
+    uint64_t sum_wx = 0;
+    for (int i = 0; i < NUM_WX_OPTS; i++) {
+        if (wx_times[i] > max_wx) max_wx = wx_times[i];
+        if (wx_times[i] < min_wx) min_wx = wx_times[i];
+        sum_wx += wx_times[i];
+
+        double ratio = (baseline > 0) ? (double)wx_times[i] / (double)baseline : 0.0;
+        if (ratio > THRESHOLD_RATIO || ratio < (1.0 / THRESHOLD_RATIO)) {
+            anomaly_count++;
+        }
+    }
+    uint64_t avg_wx = sum_wx / NUM_WX_OPTS;
+
+    double max_ratio = (baseline > 0) ? (double)max_wx / (double)baseline : 0.0;
+
+    char result[512];
+    snprintf(result, sizeof(result),
+             "baseline=%llu|wx_avg=%llu|wx_min=%llu|wx_max=%llu|max_ratio=%.2f|anomaly=%d|threshold=%.1f",
+             (unsigned long long)baseline,
+             (unsigned long long)avg_wx,
+             (unsigned long long)min_wx,
+             (unsigned long long)max_wx,
+             max_ratio,
+             anomaly_count,
+             THRESHOLD_RATIO);
+    return env->NewStringUTF(result);
+}
+
 // ==================== 4. Anti-Detect: faccessat vs openat 不一致性 ====================
 
 extern "C" JNIEXPORT jstring JNICALL
