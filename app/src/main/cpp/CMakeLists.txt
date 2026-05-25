@@ -36,6 +36,7 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         jni/susfs_detection.cpp
         jni/soc_detection.cpp
         jni/wxshadow_detection.cpp
+        jni/tricky_store_detection.cpp
         properties/property_info.cpp
         properties/system_properties.cpp
         gpu/vulkan_info.cpp)

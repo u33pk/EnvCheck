@@ -53,8 +53,10 @@ object CheckerManager {
             qpdb.env.check.checkers.OEMChecker(),       // OEM 服务检测
             qpdb.env.check.checkers.PackageChecker(),   // 包名列表检测
             qpdb.env.check.checkers.WxShadowChecker(),  // WXShadow / Anti-Detect / Hide-Maps 检测
-            qpdb.env.check.checkers.PropertyChecker(),  // 属性对比检测
 //            qpdb.env.check.checkers.KernelInfoChecker(), // 内核信息检测
+            qpdb.env.check.checkers.KeyAttestationChecker(),
+            // 下面开始是带有canvas的checker，上面是纯文字
+            qpdb.env.check.checkers.PropertyChecker(),  // 属性对比检测
         )
     }
 

@@ -85,10 +85,17 @@ app/src/main/
 │   │   ├── SimCardChecker.kt    # SIM 卡信息
 │   │   ├── SoCChecker.kt        # SoC 信息检测
 │   │   ├── SusfsChecker.kt      # SUSFS 检测
+│   │   ├── KeyAttestationChecker.kt  # 密钥认证检测 (Bootloader/Verified Boot)
 │   │   ├── WebViewFingerPrintChecker.kt  # WebView 指纹检测
 │   │   ├── WxShadowChecker.kt   # WXShadow / Anti-Detect / Hide-Maps 检测
 │   │   ├── XPLikeChecker.kt     # XPLike 检测
 │   │   └── ZygiskNextChecker.kt # ZygiskNext 检测
+│   ├── attestation/             # 密钥认证 ASN.1 解析
+│   │   ├── Asn1Utils.kt         # ASN.1 解析工具
+│   │   ├── Attestation.kt       # 认证数据抽象基类
+│   │   ├── Asn1Attestation.kt   # ASN.1 认证解析实现
+│   │   ├── AuthorizationList.kt # 授权列表解析
+│   │   └── RootOfTrust.kt       # RootOfTrust 解析
 │   ├── manager/                 # 管理器层
 │   │   ├── CheckerManager.kt    # 检测器注册与执行（单例）
 │   │   ├── DataManager.kt       # 数据更新与统计
@@ -111,6 +118,8 @@ app/src/main/
 │       ├── GpuInfoUtil.kt
 │       ├── GpuNativeUtil.kt
 │       ├── HttpUtil.kt          # HTTP 请求
+│       ├── KeyAttestationUtil.kt # 密钥认证生成与解析
+│       ├── KeyAttestationRevocationUtil.kt
 │       ├── KeyStoreUtil.kt      # 证书枚举
 │       ├── KsuDetectionUtil.kt
 │       ├── NetworkUtil.kt       # 网络工具
@@ -288,6 +297,62 @@ CheckerRegistry.registerAll(
 1. 为每个检测器添加单元测试，模拟系统属性返回值
 2. 使用 Mockito 模拟 Android 系统服务
 3. 对 JNI 层进行集成测试
+
+### 仪器测试实战：Checker 回归测试
+
+项目已包含一个可直接运行的仪器测试范例：
+- **文件**: `app/src/androidTest/java/qpdb/env/check/KeyAttestationInstrumentedTest.kt`
+- **作用**: 脱离 UI，直接调用 `KeyAttestationChecker.runCheck()`，在真机上快速验证检测逻辑和 JNI 时序数据
+
+#### 运行方式
+
+```bash
+# 编译并运行所有仪器测试（需连接设备/模拟器）
+./gradlew connectedDebugAndroidTest
+
+# 测试结果与 logcat 输出位于
+# app/build/outputs/androidTest-results/connected/debug/<设备名>/
+```
+
+#### 为其他 Checker 编写同类测试
+
+以 `XXXChecker` 为例，创建 `app/src/androidTest/java/qpdb/env/check/XXXInstrumentedTest.kt`：
+
+```kotlin
+package qpdb.env.check
+
+import android.util.Log
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Test
+import org.junit.runner.RunWith
+import qpdb.env.check.checkers.XXXChecker
+
+@RunWith(AndroidJUnit4::class)
+class XXXInstrumentedTest {
+    @Test
+    fun runXXXCheck() {
+        val checker = XXXChecker()
+        val items = checker.runCheck()
+        items.forEach {
+            Log.i("XXXTest", "[RESULT] ${it.checkPoint}: status=${it.status}")
+            Log.i("XXXTest", "[DESC] ${it.description.replace("\n", " | ")}")
+        }
+    }
+}
+```
+
+#### 适用场景
+
+- **调试原生层逻辑**: 直接触发 JNI 方法，通过 `adb logcat` 或测试输出目录查看原生日志（如 `TrickyStoreNative` TAG）
+- **阈值调优**: 修改 C++ 阈值后，无需手动点击 UI 即可批量运行获取统计数据
+- **回归验证**: 确保修改某检测器后，其他检测器未被意外影响
+- **跨设备基线采集**: 在不同机型上快速运行同一测试，收集正常设备的指标基线
+
+#### 关键路径说明
+
+1. 仪器测试会自动安装 `app-debug.apk` 和 `app-debug-androidTest.apk`
+2. 测试运行期间系统会实时采集 logcat，结束后保存到 `androidTest-results/connected/debug/<设备名>/logcat-*.txt`
+3. 通过 `grep "TAG_NAME" logcat-*.txt` 即可过滤关键日志
 
 ## Security Considerations
 

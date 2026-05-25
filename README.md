@@ -6,7 +6,7 @@ Android 设备环境安全检测应用，用于识别设备上的 Root 框架、
 
 - **Root 框架检测** — KernelSU、APatch、ZygiskNext、XPLike、SUSFS
 - **WXShadow 关联检测** — Shadow Page、Anti-Detect、Hide-Maps 侧信道检测
-- **系统环境检测** — 开发者模式、ADB、网络代理、Bootloader 状态
+- **系统环境检测** — 开发者模式、ADB、网络代理、Bootloader 状态、KeyAttestation状态
 - **硬件信息检测** — SoC、GPU、摄像头、传感器
 - **OEM / 包名扫描** — 自定义 OEM 服务探测与包名列表检查
 

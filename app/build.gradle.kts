@@ -56,6 +56,9 @@ dependencies {
     
     // Lifecycle components for coroutines
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+
+    // BouncyCastle for ASN.1 certificate parsing
+    implementation("org.bouncycastle:bcprov-jdk18on:1.80")
     
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
