@@ -40,6 +40,19 @@ class AuthorizationList(asn1Encodable: ASN1Encodable) {
         private const val KM_TAG_BOOT_PATCHLEVEL = KM_UINT or 719
         private const val KM_TAG_DEVICE_UNIQUE_ATTESTATION = KM_BOOL or 720
 
+        // Attestation ID tags (device binding info)
+        private const val KM_TAG_ATTESTATION_APPLICATION_ID = KM_BYTES or 709
+        private const val KM_TAG_ATTESTATION_ID_BRAND = KM_BYTES or 710
+        private const val KM_TAG_ATTESTATION_ID_DEVICE = KM_BYTES or 711
+        private const val KM_TAG_ATTESTATION_ID_PRODUCT = KM_BYTES or 712
+        private const val KM_TAG_ATTESTATION_ID_SERIAL = KM_BYTES or 713
+        private const val KM_TAG_ATTESTATION_ID_IMEI = KM_BYTES or 714
+        private const val KM_TAG_ATTESTATION_ID_MEID = KM_BYTES or 715
+        private const val KM_TAG_ATTESTATION_ID_MANUFACTURER = KM_BYTES or 716
+        private const val KM_TAG_ATTESTATION_ID_MODEL = KM_BYTES or 717
+        private const val KM_TAG_ATTESTATION_ID_SECOND_IMEI = KM_BYTES or 723
+        private const val KM_TAG_MODULE_HASH = KM_BYTES or 724
+
         const val KM_ORIGIN_GENERATED = 0
         const val KM_ORIGIN_DERIVED = 1
         const val KM_ORIGIN_IMPORTED = 2
@@ -83,6 +96,28 @@ class AuthorizationList(asn1Encodable: ASN1Encodable) {
     var bootPatchLevel: Int? = null
         private set
     var deviceUniqueAttestation: Boolean? = null
+        private set
+    var attestationApplicationId: AttestationApplicationId? = null
+        private set
+    var brand: String? = null
+        private set
+    var device: String? = null
+        private set
+    var product: String? = null
+        private set
+    var serialNumber: String? = null
+        private set
+    var imei: String? = null
+        private set
+    var meid: String? = null
+        private set
+    var manufacturer: String? = null
+        private set
+    var model: String? = null
+        private set
+    var secondImei: String? = null
+        private set
+    var moduleHash: ByteArray? = null
         private set
 
     init {
@@ -134,6 +169,34 @@ class AuthorizationList(asn1Encodable: ASN1Encodable) {
                     bootPatchLevel = Asn1Utils.getIntegerFromAsn1(value)
                 KM_TAG_DEVICE_UNIQUE_ATTESTATION and KEYMASTER_TAG_TYPE_MASK ->
                     deviceUniqueAttestation = true
+                KM_TAG_ATTESTATION_APPLICATION_ID and KEYMASTER_TAG_TYPE_MASK ->
+                    try {
+                        attestationApplicationId = AttestationApplicationId(
+                            Asn1Utils.getAsn1EncodableFromBytes(Asn1Utils.getByteArrayFromAsn1(value))
+                        )
+                    } catch (e: Exception) {
+                        android.util.Log.w("AuthorizationList", "Failed to parse AttestationApplicationId: ${e.message}")
+                    }
+                KM_TAG_ATTESTATION_ID_BRAND and KEYMASTER_TAG_TYPE_MASK ->
+                    brand = Asn1Utils.getStringFromAsn1OctetStreamAssumingUTF8(value)
+                KM_TAG_ATTESTATION_ID_DEVICE and KEYMASTER_TAG_TYPE_MASK ->
+                    device = Asn1Utils.getStringFromAsn1OctetStreamAssumingUTF8(value)
+                KM_TAG_ATTESTATION_ID_PRODUCT and KEYMASTER_TAG_TYPE_MASK ->
+                    product = Asn1Utils.getStringFromAsn1OctetStreamAssumingUTF8(value)
+                KM_TAG_ATTESTATION_ID_SERIAL and KEYMASTER_TAG_TYPE_MASK ->
+                    serialNumber = Asn1Utils.getStringFromAsn1OctetStreamAssumingUTF8(value)
+                KM_TAG_ATTESTATION_ID_IMEI and KEYMASTER_TAG_TYPE_MASK ->
+                    imei = Asn1Utils.getStringFromAsn1OctetStreamAssumingUTF8(value)
+                KM_TAG_ATTESTATION_ID_MEID and KEYMASTER_TAG_TYPE_MASK ->
+                    meid = Asn1Utils.getStringFromAsn1OctetStreamAssumingUTF8(value)
+                KM_TAG_ATTESTATION_ID_MANUFACTURER and KEYMASTER_TAG_TYPE_MASK ->
+                    manufacturer = Asn1Utils.getStringFromAsn1OctetStreamAssumingUTF8(value)
+                KM_TAG_ATTESTATION_ID_MODEL and KEYMASTER_TAG_TYPE_MASK ->
+                    model = Asn1Utils.getStringFromAsn1OctetStreamAssumingUTF8(value)
+                KM_TAG_ATTESTATION_ID_SECOND_IMEI and KEYMASTER_TAG_TYPE_MASK ->
+                    secondImei = Asn1Utils.getStringFromAsn1OctetStreamAssumingUTF8(value)
+                KM_TAG_MODULE_HASH and KEYMASTER_TAG_TYPE_MASK ->
+                    moduleHash = Asn1Utils.getByteArrayFromAsn1(value)
             }
         }
     }
@@ -155,6 +218,17 @@ class AuthorizationList(asn1Encodable: ASN1Encodable) {
         vendorPatchLevel?.let { s.append("\nVendor patch level: $it") }
         bootPatchLevel?.let { s.append("\nBoot patch level: $it") }
         deviceUniqueAttestation?.let { s.append("\nDevice unique attestation") }
+        attestationApplicationId?.let { s.append("\nAttestation Application Id:\n$it") }
+        brand?.let { s.append("\nBrand: $it") }
+        device?.let { s.append("\nDevice type: $it") }
+        product?.let { s.append("\nProduct: $it") }
+        serialNumber?.let { s.append("\nSerial: $it") }
+        imei?.let { s.append("\nIMEI: $it") }
+        secondImei?.let { s.append("\nSecond IMEI: $it") }
+        meid?.let { s.append("\nMEID: $it") }
+        manufacturer?.let { s.append("\nManufacturer: $it") }
+        model?.let { s.append("\nModel: $it") }
+        moduleHash?.let { s.append("\nModule Hash: ${it.joinToString("") { b -> "%02x".format(b) }}") }
         rootOfTrust?.let { s.append("\n-- Root of Trust --\n$it") }
         return s.toString()
     }

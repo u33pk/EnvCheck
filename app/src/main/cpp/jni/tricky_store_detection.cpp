@@ -341,10 +341,10 @@ Java_qpdb_env_check_utils_TrickyStoreUtil_nativeCheckTimingAttestation(
     // 真实 StrongBox（eSE）与主 CPU 隔离，抖动通常 < 150%
     // Tricky Store 软件模拟在 CPU 负载下抖动极大，通常 > 400%
     uint64_t jitter_ratio = (idle_std_ns > 0) ? ((load_std_ns * 100) / idle_std_ns) : 0;
-    uint64_t jitter_threshold = useStrongBox ? 250 : 350;
+    uint64_t jitter_threshold = useStrongBox ? 250 : 300;
     if (jitter_ratio > jitter_threshold) {
-        suspicious++;
-        LOGI("[EVAL-2] TRIGGERED: jitter_ratio=%llu%% > %llu%%",
+        suspicious += 2;  // 权重提高到 +2，这是软件模拟最典型特征
+        LOGI("[EVAL-2] TRIGGERED: jitter_ratio=%llu%% > %llu%% (+2)",
              (unsigned long long)jitter_ratio, (unsigned long long)jitter_threshold);
     }
 
@@ -432,6 +432,20 @@ Java_qpdb_env_check_utils_TrickyStoreUtil_nativeCheckTimingAttestation(
              (unsigned long long)load_cv_pct);
     }
 
+    // 指标 12：负载下变异系数异常增大（仅对 TEE 检测，StrongBox 负载下 eSE 通信本身会抖动）
+    // 真实 TEE 负载下仍应稳定，load_cv 不应显著高于 idle_cv
+    // TEESimulator 等工具在负载下非签名环节（如 Binder/HAL 处理）抖动增大
+    uint64_t load_cv_idle_mult = (idle_cv_pct > 0) ? ((load_cv_pct * 100) / idle_cv_pct) : 0;
+    if (!useStrongBox) {
+        uint64_t load_cv_threshold = 25;
+        if (load_cv_pct > load_cv_threshold && load_cv_idle_mult > 200) {
+            suspicious++;
+            LOGI("[EVAL-12] TRIGGERED: load_cv=%llu%% > %llu%% and %llux idle_cv",
+                 (unsigned long long)load_cv_pct, (unsigned long long)load_cv_threshold,
+                 (unsigned long long)(load_cv_idle_mult / 100));
+        }
+    }
+
     // 8. 清理密钥
     call_cleanup(env);
     call_software_cleanup(env);
@@ -444,7 +458,7 @@ Java_qpdb_env_check_utils_TrickyStoreUtil_nativeCheckTimingAttestation(
              "|jitter_ratio=%llu|mean_diff=%llu|spread_ratio=%llu|median_mean_ratio=%llu"
              "|gen_sign_ratio=%llu|negative_drift=%llu"
              "|bc_mean=%llu|bc_median=%llu|bc_std=%llu|bc_min=%llu|bc_max=%llu|bc_cv=%llu"
-             "|ks_bc_ratio=%d|cv_diff=%llu",
+             "|ks_bc_ratio=%d|cv_diff=%llu|load_cv_idle_mult=%llu",
              suspicious,
              (unsigned long long)gen_ns,
              (unsigned long long)idle_mean_ns,
@@ -471,8 +485,9 @@ Java_qpdb_env_check_utils_TrickyStoreUtil_nativeCheckTimingAttestation(
              (unsigned long long)bc_min_ns,
              (unsigned long long)bc_max_ns,
              (unsigned long long)bc_cv_pct,
-             (int)(ks_bc_ratio * 1000),
-             (unsigned long long)cv_diff);
+              (int)(ks_bc_ratio * 1000),
+              (unsigned long long)cv_diff,
+              (unsigned long long)load_cv_idle_mult);
 
     LOGI("[END] score=%d %s", suspicious, result);
 

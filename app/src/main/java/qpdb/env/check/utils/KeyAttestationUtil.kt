@@ -80,6 +80,10 @@ object KeyAttestationUtil {
                 builder.setIsStrongBoxBacked(true)
             }
 
+//            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU) {
+//                builder.setDevicePropertiesAttestationIncluded(true)
+//            }
+
             val keyPairGenerator = KeyPairGenerator.getInstance(
                 KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore"
             )

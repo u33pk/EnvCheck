@@ -1,0 +1,86 @@
+# 文件名: strongbox_ext.cnf
+# 用途: 用于伪造 Android Key Attestation (StrongBox 级别) 扩展
+
+[ v3_req ]
+# 核心 OID：声明这是一个 Android 硬件证明扩展
+1.3.6.1.4.1.11129.2.1.17 = ASN1:SEQUENCE:android_attestation
+
+[ android_attestation ]
+# 1. 证明版本 (整数，例如 300 代表 KeyMint 3.0)
+attestationVersion = INTEGER:300
+
+# 2. 核心造假点：证明安全级别 (0=Software, 1=TEE, 2=StrongBox)
+attestationSecurityLevel = INTEGER:2
+
+# 3. Keymaster/Keymint 版本
+keymasterVersion = INTEGER:300
+
+# 4. Keymaster 安全级别 (同样伪造为 2)
+keymasterSecurityLevel = INTEGER:2
+
+# 5. Attestation Challenge (模拟 APP 传上来的随机数 nonce)
+attestationChallenge = OCTETSTRING:deadbeef12345678
+
+# 6. Unique ID (设备唯一标识，任意伪造)
+uniqueId = OCTETSTRING:0011223344556677
+
+# 7. 软件强制属性 (Software Enforced)
+softwareEnforced = SEQUENCE:sw_enforced
+
+# 8. 硬件强制属性 (TEE Enforced / StrongBox Enforced)
+teeEnforced = SEQUENCE:hw_enforced
+
+
+[ sw_enforced ]
+# 这里通常包含不依赖硬件保护的信息，例如系统 OS 版本
+# OS Version: 140000 (代表 Android 14) -> [705] INTEGER
+osVersion = EXPLICIT:705,INTEGER:140000
+
+# OS Patch Level: 202401 (补丁年月) -> [706] INTEGER
+osPatchLevel = EXPLICIT:706,INTEGER:202401
+
+
+[ hw_enforced ]
+# 这里包含硬件级(StrongBox)声称保护的密钥属性和设备状态
+
+# 密钥用途: [1] INTEGER 1 (代表既能加密也能签名等，简化处理)
+purpose = EXPLICIT:1,SET:purpose_set
+
+# 密钥算法: [2] INTEGER 3 (代表 EC)
+algorithm = EXPLICIT:2,INTEGER:3
+
+# 密钥大小: [3] INTEGER 256
+keySize = EXPLICIT:3,INTEGER:256
+
+# EC 曲线: [10] INTEGER 1 (代表 P-256)
+ecCurve = EXPLICIT:10,INTEGER:1
+
+# 摘要算法: [5] INTEGER 4 (代表 SHA-256)
+digest = EXPLICIT:5,SET:digest_set
+
+# 核心造假点 2：RootOfTrust (启动信任链状态)
+# 它的 Tag 是 [704] SEQUENCE
+rootOfTrust = EXPLICIT:704,SEQUENCE:root_of_trust_seq
+
+
+[ purpose_set ]
+# 2 = SIGN, 3 = VERIFY
+p1 = INTEGER:2
+p2 = INTEGER:3
+
+[ digest_set ]
+# 4 = SHA-256
+d1 = INTEGER:4
+
+[ root_of_trust_seq ]
+# 伪造的启动映像公钥 (Verified Boot Key)
+verifiedBootKey = OCTETSTRING:aabbccddeeff
+
+# 伪造设备锁定状态 (deviceLocked) -> 必须是 TRUE (布尔值)
+deviceLocked = BOOLEAN:TRUE
+
+# 伪造 Verified Boot 状态 -> 0 代表 Verified (绿状态)
+verifiedBootState = INTEGER:0
+
+# 伪造启动映像 Hash
+verifiedBootHash = OCTETSTRING:1122334455667788
