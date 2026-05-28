@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <sched.h>
 #include <unistd.h>
+#include <time.h>
 
 #define LOG_TAG "TrickyStoreNative"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -25,6 +26,13 @@ static inline uint64_t read_cntfrq_el0(void) {
     uint64_t freq;
     __asm__ __volatile__ ("mrs %0, cntfrq_el0" : "=r" (freq));
     return freq;
+}
+
+// 获取当前线程实际占用 CPU 执行的时间（纳秒）
+static inline uint64_t read_thread_cpu_time_ns() {
+    struct timespec ts;
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts);
+    return (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
 }
 
 static uint64_t g_cntfrq = 0;
@@ -128,16 +136,24 @@ static void call_software_cleanup(JNIEnv* env) {
 }
 
 static int collect_sign_samples(JNIEnv* env, jstring alias, jbyteArray data,
-                                 uint64_t* samples, int num_samples, const char* tag) {
+                                 uint64_t* samples, double* thread_cpu_utils, int num_samples, const char* tag) {
     for (int i = 0; i < num_samples; i++) {
-        uint64_t start = read_cntvct_el0();
+        uint64_t wall_start = read_cntvct_el0();
+        uint64_t thread_start = read_thread_cpu_time_ns();
         jboolean success = call_sign_data(env, alias, data);
-        uint64_t end = read_cntvct_el0();
+        uint64_t thread_end = read_thread_cpu_time_ns();
+        uint64_t wall_end = read_cntvct_el0();
         if (!success) {
             LOGE("[%s] sign operation failed at sample %d", tag, i);
             return -1;
         }
-        samples[i] = end - start;
+        uint64_t wall_delta = wall_end - wall_start;
+        uint64_t thread_delta = thread_end - thread_start;
+        samples[i] = wall_delta;
+        if (thread_cpu_utils) {
+            uint64_t wall_delta_ns = cntvct_to_ns(wall_delta);
+            thread_cpu_utils[i] = (wall_delta_ns > 0) ? ((double)thread_delta / (double)wall_delta_ns) : 0.0;
+        }
     }
     return 0;
 }
@@ -179,10 +195,14 @@ Java_qpdb_env_check_utils_TrickyStoreUtil_nativeCheckTimingAttestation(
 
     uint64_t* samples_idle = (uint64_t*)malloc(NUM_SAMPLES * sizeof(uint64_t));
     uint64_t* samples_load = (uint64_t*)malloc(NUM_SAMPLES * sizeof(uint64_t));
-    if (!samples_idle || !samples_load) {
+    double* thread_cpu_utils_idle = (double*)malloc(NUM_SAMPLES * sizeof(double));
+    double* thread_cpu_utils_load = (double*)malloc(NUM_SAMPLES * sizeof(double));
+    if (!samples_idle || !samples_load || !thread_cpu_utils_idle || !thread_cpu_utils_load) {
         LOGE("malloc failed");
         free(samples_idle);
         free(samples_load);
+        free(thread_cpu_utils_idle);
+        free(thread_cpu_utils_load);
         return env->NewStringUTF("error=alloc_failed");
     }
 
@@ -222,9 +242,11 @@ Java_qpdb_env_check_utils_TrickyStoreUtil_nativeCheckTimingAttestation(
     }
 
     // 3. 空闲状态采集签名样本
-    if (collect_sign_samples(env, alias, data, samples_idle, NUM_SAMPLES, "IDLE") < 0) {
+    if (collect_sign_samples(env, alias, data, samples_idle, thread_cpu_utils_idle, NUM_SAMPLES, "IDLE") < 0) {
         free(samples_idle);
         free(samples_load);
+        free(thread_cpu_utils_idle);
+        free(thread_cpu_utils_load);
         env->DeleteLocalRef(alias);
         env->DeleteLocalRef(data);
         call_cleanup(env);
@@ -241,11 +263,13 @@ Java_qpdb_env_check_utils_TrickyStoreUtil_nativeCheckTimingAttestation(
     usleep(200000); // 让负载稳定运行 200ms
 
     // 5. CPU 负载下采集签名样本
-    if (collect_sign_samples(env, alias, data, samples_load, NUM_SAMPLES, "LOAD") < 0) {
+    if (collect_sign_samples(env, alias, data, samples_load, thread_cpu_utils_load, NUM_SAMPLES, "LOAD") < 0) {
         cpu_burn_running = 0;
         pthread_join(burn_tid, NULL);
         free(samples_idle);
         free(samples_load);
+        free(thread_cpu_utils_idle);
+        free(thread_cpu_utils_load);
         env->DeleteLocalRef(alias);
         env->DeleteLocalRef(data);
         call_cleanup(env);
@@ -320,6 +344,20 @@ Java_qpdb_env_check_utils_TrickyStoreUtil_nativeCheckTimingAttestation(
     double ks_bc_ratio = (bc_mean_ns > 0) ? ((double)idle_mean_ns / (double)bc_mean_ns) : 0.0;
     LOGI("[BC] mean=%lluns cv=%llu%% ks_bc_ratio=%.1f",
          (unsigned long long)bc_mean_ns, (unsigned long long)bc_cv_pct, ks_bc_ratio);
+
+    // === 线程 CPU 占用率分析 ===
+    // 真实 TEE/StrongBox：签名由独立安全环境执行，调用线程处于休眠等待，CPU 占用极低 (< 5%)
+    // 软件模拟 / Spin-loop 对抗：当前线程直接消耗 CPU 周期，占用率接近 100%
+    double idle_cpu_util_sum = 0.0, load_cpu_util_sum = 0.0;
+    for (int i = 0; i < NUM_SAMPLES; i++) {
+        idle_cpu_util_sum += thread_cpu_utils_idle[i];
+        load_cpu_util_sum += thread_cpu_utils_load[i];
+    }
+    double idle_cpu_util_mean = idle_cpu_util_sum / NUM_SAMPLES;
+    double load_cpu_util_mean = load_cpu_util_sum / NUM_SAMPLES;
+    double max_cpu_util = (idle_cpu_util_mean > load_cpu_util_mean) ? idle_cpu_util_mean : load_cpu_util_mean;
+    LOGI("[CPU] idle_util=%.2f%% load_util=%.2f%% max_util=%.2f%%",
+         idle_cpu_util_mean * 100.0, load_cpu_util_mean * 100.0, max_cpu_util * 100.0);
 
     // 7. 判别逻辑
     // 真实 TEE/StrongBox：独立运行环境，方差小，负载前后差异小，耗时稳定
@@ -446,6 +484,15 @@ Java_qpdb_env_check_utils_TrickyStoreUtil_nativeCheckTimingAttestation(
         }
     }
 
+    // 指标 13：线程 CPU 占用率畸高（绝杀纯软件计算与 Spin-Loop 延时伪装）
+    // 真实 TEE/StrongBox：签名由独立安全环境执行，调用线程处于休眠等待状态，CPU 占用极低（通常 < 5%）
+    // 软件模拟（如 TrickyStore）或 Spin-loop 对抗：完全由当前线程消耗 CPU 周期，占用率接近 100%
+    if (max_cpu_util > 0.80) {
+        suspicious += 5;
+        LOGI("[EVAL-13] TRIGGERED: thread_cpu_utilization=%.2f%% > 80%% (No Hardware Delegation!)",
+             max_cpu_util * 100.0);
+    }
+
     // 8. 清理密钥
     call_cleanup(env);
     call_software_cleanup(env);
@@ -458,7 +505,8 @@ Java_qpdb_env_check_utils_TrickyStoreUtil_nativeCheckTimingAttestation(
              "|jitter_ratio=%llu|mean_diff=%llu|spread_ratio=%llu|median_mean_ratio=%llu"
              "|gen_sign_ratio=%llu|negative_drift=%llu"
              "|bc_mean=%llu|bc_median=%llu|bc_std=%llu|bc_min=%llu|bc_max=%llu|bc_cv=%llu"
-             "|ks_bc_ratio=%d|cv_diff=%llu|load_cv_idle_mult=%llu",
+             "|ks_bc_ratio=%d|cv_diff=%llu|load_cv_idle_mult=%llu"
+             "|idle_cpu_util=%d|load_cpu_util=%d|max_cpu_util=%d",
              suspicious,
              (unsigned long long)gen_ns,
              (unsigned long long)idle_mean_ns,
@@ -485,15 +533,20 @@ Java_qpdb_env_check_utils_TrickyStoreUtil_nativeCheckTimingAttestation(
              (unsigned long long)bc_min_ns,
              (unsigned long long)bc_max_ns,
              (unsigned long long)bc_cv_pct,
-              (int)(ks_bc_ratio * 1000),
-              (unsigned long long)cv_diff,
-              (unsigned long long)load_cv_idle_mult);
+             (int)(ks_bc_ratio * 1000),
+             (unsigned long long)cv_diff,
+             (unsigned long long)load_cv_idle_mult,
+             (int)(idle_cpu_util_mean * 1000),
+             (int)(load_cpu_util_mean * 1000),
+             (int)(max_cpu_util * 1000));
 
     LOGI("[END] score=%d %s", suspicious, result);
 
     free(samples_idle);
     free(samples_load);
     free(samples_bc);
+    free(thread_cpu_utils_idle);
+    free(thread_cpu_utils_load);
     env->DeleteLocalRef(alias);
     env->DeleteLocalRef(data);
 
