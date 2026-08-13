@@ -75,6 +75,7 @@ app/src/main/
 │   │   ├── PropertyChecker.kt   # 属性对比检测器（Diff Pixel Map + Entropy Curve）
 │   │   ├── DeveloperChecker.kt  # 开发者模式/ADB 检测
 │   │   ├── GpuChecker.kt        # GPU 信息检测
+│   │   ├── GeoLocationChecker.kt # 地理位置检测 (GPS/GNSS/卫星/NMEA/模拟位置/虚拟GNSS判定)
 │   │   ├── InputDeviceChecker.kt  # 输入设备检测
 │   │   ├── KernelInfoChecker.kt # 内核信息检测
 │   │   ├── KernelSUChecker.kt   # KernelSU 检测
@@ -215,6 +216,7 @@ CheckerRegistry.registerAll(
     OEMChecker(),          // OEM 服务检测
     PackageChecker(),      // 包名列表检测
     WxShadowChecker(),     // WXShadow / Anti-Detect / Hide-Maps 检测
+    GeoLocationChecker(),  // 地理位置检测 (GPS/GNSS/卫星/NMEA/模拟位置/虚拟GNSS判定)
     PropertyChecker(),     // 属性对比检测
 )
 ```
@@ -267,9 +269,12 @@ CheckerRegistry.registerAll(
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" />
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 ```
 
-运行时权限（如 `READ_PHONE_STATE`）需要在代码中动态申请。
+运行时权限（如 `READ_PHONE_STATE`、`ACCESS_FINE_LOCATION`）需要在代码中检查，
+缺失时检测器会将对应检测项标记为 FAIL 并提示用户到系统设置开启。
 
 ### JNI 使用规范
 

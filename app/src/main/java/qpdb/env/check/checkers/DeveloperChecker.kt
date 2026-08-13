@@ -382,7 +382,8 @@ class DeveloperChecker : Checkable {
                 val value = getSystemProperty(failedRule.propName)
                 return CheckResult(CheckStatus.FAIL, "${failedRule.propName} = [$value]")
             }
-
+            // adb tcpip 6666
+            // adb pair ip:port > ping ; adb connect
             val checkPorts = listOf<Int>(27042, 23946, 5555, 5554, 5037, 12345, 1234)
             checkPorts.forEach { port ->
                 val listen = checkListeningPort(port)

@@ -18,7 +18,7 @@ Java_qpdb_env_check_utils_FileUtil_fileExists(
     const char* path = env->GetStringUTFChars(filePath, nullptr);
     struct stat st;
     jboolean exists = false;
-    int ret = stat(path, &st);
+    int ret = stat(path, &st);  // /data/adb/ksu
     if(ret == 0){
         exists = true;
     } else {

@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <queries>
-        <package android:name="com.xiaomi.market" />
+        <package android:name="com.sukisu.ultra" />
     </queries>
     <!-- 只有这个要探测的app不在系统中，才用这个app -->
     <!-- OpenGL ES 2.0 支持 -->
@@ -14,6 +14,8 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"
         tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <application
         android:name=".EnvCheckApp"

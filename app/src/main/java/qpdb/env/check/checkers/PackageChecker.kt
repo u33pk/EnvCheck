@@ -132,7 +132,7 @@ class PackageChecker : Checkable {
 
         // 1. 包是否存在
         try {
-            val info = pm.getPackageInfo("com.xiaomi.market", 0)
+            val info = pm.getPackageInfo("com.sukisu.ultra", 0)
             Log.i("DIAG", "✅ 包存在: ${info.packageName}, version=${info.versionName}")
         } catch (e: Exception) {
             Log.e("DIAG", "❌ 包不存在: ${e.message}")

@@ -365,6 +365,7 @@ class NetworkChecker : Checkable {
     /**
      * 检测网络地址配置
      * 检查子网掩码是否为异常的小网络（如 Cuttlefish 的 /30）
+     * 192.168.1.1/30  .2 .3
      */
     private fun checkNetworkAddress(context: Context): CheckResult {
         return try {
