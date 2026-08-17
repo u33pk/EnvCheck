@@ -42,11 +42,11 @@ class GeoLocationChecker : Checkable {
     companion object {
         private const val TAG = "GeoLocationChecker"
 
-        /** GNSS 卫星 / NMEA 采集窗口 */
-        private const val GNSS_WINDOW_MS = 4000L
+        /** GNSS 卫星 / NMEA 采集窗口（10s，兼顾 GPS 锁定初期信号稳定与检测耗时） */
+        private const val GNSS_WINDOW_MS = 10_000L
 
-        /** 当前定位获取超时 */
-        private const val LOCATION_TIMEOUT_MS = 5000L
+        /** 当前定位获取超时（15s：热启动 1~3s 可拿到 fix，温启动 10~15s） */
+        private const val LOCATION_TIMEOUT_MS = 15_000L
 
         /** GPS 与网络位置相差超过该距离视为异常（米） */
         private const val CONSISTENCY_THRESHOLD_M = 100_000

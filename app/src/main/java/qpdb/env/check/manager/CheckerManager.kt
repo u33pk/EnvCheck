@@ -43,21 +43,21 @@ object CheckerManager {
 //            qpdb.env.check.checkers.NetworkChecker(),    // 网络环境检测
 //            qpdb.env.check.checkers.GpuChecker(),        // GPU 信息检测
 //            qpdb.env.check.checkers.KernelSUChecker(),   // KernelSU 检测
-            qpdb.env.check.checkers.APatchChecker(),     // APatch 检测
+//            qpdb.env.check.checkers.APatchChecker(),     // APatch 检测
 //            qpdb.env.check.checkers.ZygiskNextChecker(), // Zygisk Next 检测
 //            qpdb.env.check.checkers.XPLikeChecker(),     // XPLike 检测
 //            qpdb.env.check.checkers.SusfsChecker(),      // SUSFS 检测
-            qpdb.env.check.checkers.SoCChecker(),        // SoC 信息检测
-            qpdb.env.check.checkers.CameraChecker(),    // 摄像头检测
-            qpdb.env.check.checkers.SensorChecker(),   // 传感器信息检测
-            qpdb.env.check.checkers.OEMChecker(),       // OEM 服务检测
-            qpdb.env.check.checkers.PackageChecker(),   // 包名列表检测
-            qpdb.env.check.checkers.WxShadowChecker(),  // WXShadow / Anti-Detect / Hide-Maps 检测
+//            qpdb.env.check.checkers.SoCChecker(),        // SoC 信息检测
+//            qpdb.env.check.checkers.CameraChecker(),    // 摄像头检测
+//            qpdb.env.check.checkers.SensorChecker(),   // 传感器信息检测
+//            qpdb.env.check.checkers.OEMChecker(),       // OEM 服务检测
+//            qpdb.env.check.checkers.PackageChecker(),   // 包名列表检测
+//            qpdb.env.check.checkers.WxShadowChecker(),  // WXShadow / Anti-Detect / Hide-Maps 检测
 //            qpdb.env.check.checkers.KernelInfoChecker(), // 内核信息检测
             qpdb.env.check.checkers.GeoLocationChecker(),  // 地理位置检测
-            qpdb.env.check.checkers.KeyAttestationChecker(),
+//            qpdb.env.check.checkers.KeyAttestationChecker(),
             // 下面开始是带有canvas的checker，上面是纯文字
-            qpdb.env.check.checkers.PropertyChecker(),  // 属性对比检测
+//            qpdb.env.check.checkers.PropertyChecker(),  // 属性对比检测
         )
     }
 
